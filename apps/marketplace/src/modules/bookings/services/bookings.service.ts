@@ -3,6 +3,7 @@ import { BookingStatus } from "@prisma/client";
 import type { CreateBookingDto, ListBookingsQueryDto, UpdateBookingStatusDto } from "@/modules/bookings/dtos";
 import { bookingsRepository } from "@/modules/bookings/repositories";
 import type { BookingModel } from "@/modules/bookings/types";
+import { petsApiClient } from "@/lib/internal/pets-api.client";
 import { HTTP_STATUS } from "@petlink/shared";
 import { AppError } from "@petlink/shared";
 import { ERROR_CODES } from "@petlink/shared";
@@ -42,7 +43,11 @@ const assertTransitionAllowed = (currentStatus: BookingStatus, nextStatus: Booki
 };
 
 export const bookingsService = {
-  createBooking: async (authUserId: string, payload: CreateBookingDto): Promise<BookingModel> => {
+  createBooking: async (
+    authUserId: string,
+    authorizationHeader: string,
+    payload: CreateBookingDto
+  ): Promise<BookingModel> => {
     if (payload.bookingDate.getTime() <= Date.now()) {
       throw new AppError("Booking date must be in the future.", {
         statusCode: HTTP_STATUS.UNPROCESSABLE_ENTITY,
@@ -50,18 +55,9 @@ export const bookingsService = {
       });
     }
 
-    const pet = await bookingsRepository.findPetById(payload.petId);
-
-    if (!pet) {
-      throw new NotFoundError("Pet not found.");
-    }
-
-    if (pet.ownerId !== authUserId) {
-      throw new AppError("Pet does not belong to authenticated user.", {
-        statusCode: HTTP_STATUS.FORBIDDEN,
-        code: ERROR_CODES.FORBIDDEN
-      });
-    }
+    // Cross-domain pet validation via HTTP — pets domain owns Pet ownership rules.
+    // petsApiClient propagates 404 and 403 from the pets API directly.
+    await petsApiClient.getPetById(authorizationHeader, payload.petId);
 
     const service = await bookingsRepository.findServiceById(payload.serviceId);
 

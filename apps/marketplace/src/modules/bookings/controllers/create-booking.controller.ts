@@ -22,6 +22,8 @@ const parseBody = async (request: NextRequest): Promise<unknown> => {
 
 export const createBookingController = async (request: NextRequest): Promise<NextResponse> => {
   const authUser = await requireAuth(request);
+  // requireAuth validates the header above; this cast is safe.
+  const authorizationHeader = request.headers.get("authorization") as string;
   const body = await parseBody(request);
   const validationResult = createBookingSchema.safeParse(body);
 
@@ -33,7 +35,7 @@ export const createBookingController = async (request: NextRequest): Promise<Nex
     });
   }
 
-  const booking = await bookingsService.createBooking(authUser.userId, validationResult.data);
+  const booking = await bookingsService.createBooking(authUser.userId, authorizationHeader, validationResult.data);
 
   return created("Booking created successfully.", toBookingResponseDto(booking));
 };

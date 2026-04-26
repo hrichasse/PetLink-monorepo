@@ -1,6 +1,6 @@
 import { prisma } from "@petlink/database";
 import type { Prisma } from "@prisma/client";
-import type { UpdateUserProfileDto } from "@/modules/users/dtos";
+import type { CreateUserProfileDto, UpdateUserProfileDto } from "@/modules/users/dtos";
 import type { UserProfileModel } from "@/modules/users/types";
 
 const toUserProfileUpdateInput = (payload: UpdateUserProfileDto): Prisma.UserProfileUpdateInput => {
@@ -22,6 +22,17 @@ const toUserProfileUpdateInput = (payload: UpdateUserProfileDto): Prisma.UserPro
 };
 
 export const usersRepository = {
+  create: (userId: string, data: CreateUserProfileDto): Promise<UserProfileModel> =>
+    prisma.userProfile.create({
+      data: {
+        userId,
+        fullName: data.fullName,
+        phone: data.phone ?? null,
+        city: data.city ?? null,
+        role: "OWNER"
+      }
+    }),
+
   findByAuthUserId: (userId: string): Promise<UserProfileModel | null> => {
     return prisma.userProfile.findUnique({
       where: { userId }

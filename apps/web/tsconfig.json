@@ -18,12 +18,10 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    
+
     "plugins": [{ "name": "next" }],
     "paths": {
-      "@/*": ["./src/*"],
-      "@petlink/database": ["../../packages/database/src/index.ts"],
-      "@petlink/shared": ["../../packages/shared/src/index.ts"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

@@ -25,3 +25,4 @@ export * from "./middleware/error-handler";
 // Lib
 export * from "./lib/supabase";
 export * from "./lib/edge-functions";
+export * from "./lib/internal-fetch";

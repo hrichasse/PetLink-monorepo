@@ -1,4 +1,4 @@
-import type { Booking, BookingStatus, Pet, Prisma, Service } from "@prisma/client";
+import type { Booking, BookingStatus, Prisma, Service } from "@prisma/client";
 
 import { prisma } from "@petlink/database";
 import type { CreateBookingDto, ListBookingsQueryDto } from "@/modules/bookings/dtos";
@@ -56,12 +56,6 @@ const toWhereForUser = (authUserId: string, query: ListBookingsQueryDto): Prisma
 };
 
 export const bookingsRepository = {
-  findPetById: (id: string): Promise<Pet | null> => {
-    return prisma.pet.findUnique({
-      where: { id }
-    });
-  },
-
   findServiceById: (id: string): Promise<Service | null> => {
     return prisma.service.findUnique({
       where: { id }

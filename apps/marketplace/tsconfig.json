@@ -20,9 +20,8 @@
     "incremental": true,
     
     "plugins": [{ "name": "next" }],
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
+      "@/*": ["./src/*"],
       "@petlink/database": ["../../packages/database/src/index.ts"],
       "@petlink/shared": ["../../packages/shared/src/index.ts"]
     }
