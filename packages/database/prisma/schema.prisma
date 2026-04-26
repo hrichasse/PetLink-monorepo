@@ -1,0 +1,416 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  OWNER
+  PROVIDER
+  ADMIN
+}
+
+enum PetSex {
+  MALE
+  FEMALE
+}
+
+enum ServiceType {
+  WALKING
+  DAYCARE
+  BOARDING
+  TRAINING
+  GROOMING
+  PET_SITTING
+  OTHER
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum HealthRecordType {
+  VACCINATION
+  VET_VISIT
+  TREATMENT
+  MEDICATION
+  ALLERGY
+  SURGERY
+  OTHER
+}
+
+enum NotificationChannel {
+  EMAIL
+  PUSH
+  IN_APP
+  SMS
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+enum PaymentProvider {
+  MERCADOPAGO
+  TRANSBANK
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  REFUNDED
+  FAILED
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum VeterinarySpecialty {
+  GENERAL
+  SURGERY
+  DERMATOLOGY
+  CARDIOLOGY
+  OPHTHALMOLOGY
+  NEUROLOGY
+  ONCOLOGY
+  DENTISTRY
+  NUTRITION
+  EXOTIC_PETS
+  EMERGENCY
+  OTHER
+}
+
+enum AnnouncementType {
+  LOST_PET
+  FOUND_PET
+  ADOPTION
+  ADVERTISING
+  GENERAL
+}
+
+model UserProfile {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @db.Uuid
+  fullName  String
+  phone     String?
+  avatarUrl String?
+  role      UserRole @default(OWNER)
+  city      String?
+  location  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pets             Pet[]             @relation("PetOwner")
+  services         Service[]         @relation("ServiceProvider")
+  ownerBookings    Booking[]         @relation("BookingOwner")
+  providerBookings Booking[]         @relation("BookingProvider")
+  writtenReviews   Review[]          @relation("ReviewAuthor")
+  receivedReviews  Review[]          @relation("ReviewProvider")
+  notifications    NotificationLog[] @relation("NotificationRecipient")
+  subscriptions    Subscription[]    @relation("UserSubscriptions")
+  payments         Payment[]         @relation("UserPayments")
+  announcements    Announcement[]    @relation("AnnouncementAuthor")
+
+  @@index([role])
+  @@index([city])
+}
+
+model Subscription {
+  id                 String             @id @default(uuid()) @db.Uuid
+  userId             String             @db.Uuid
+  planCode           String
+  status             SubscriptionStatus @default(PENDING)
+  startDate          DateTime?
+  endDate            DateTime?
+  autoRenew          Boolean            @default(true)
+  provider           PaymentProvider?
+  externalCustomerId String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  user     UserProfile @relation("UserSubscriptions", fields: [userId], references: [userId], onDelete: Restrict)
+  payments Payment[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([planCode])
+  @@index([provider])
+}
+
+model Payment {
+  id                String          @id @default(uuid()) @db.Uuid
+  userId            String          @db.Uuid
+  subscriptionId    String?         @db.Uuid
+  provider          PaymentProvider
+  providerPaymentId String?
+  providerReference String?
+  status            PaymentStatus   @default(PENDING)
+  amount            Decimal         @db.Decimal(10, 2)
+  currency          String
+  description       String
+  paymentMethod     String?
+  paidAt            DateTime?
+  metadata          Json?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  user         UserProfile   @relation("UserPayments", fields: [userId], references: [userId], onDelete: Restrict)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([provider])
+  @@index([providerReference])
+  @@unique([provider, providerPaymentId])
+}
+
+model PaymentWebhookEvent {
+  id              String          @id @default(uuid()) @db.Uuid
+  provider        PaymentProvider
+  eventType       String
+  externalEventId String?
+  payload         Json
+  processed       Boolean         @default(false)
+  processedAt     DateTime?
+  createdAt       DateTime        @default(now())
+
+  @@index([provider])
+  @@index([processed])
+  @@index([createdAt])
+  @@unique([provider, externalEventId])
+}
+
+model Pet {
+  id           String   @id @default(uuid()) @db.Uuid
+  ownerId      String   @db.Uuid
+  name         String
+  species      String
+  breed        String
+  age          Int
+  weight       Decimal  @db.Decimal(5, 2)
+  sex          PetSex
+  description  String?
+  isSterilized Boolean  @default(false)
+  isVaccinated Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  owner           UserProfile      @relation("PetOwner", fields: [ownerId], references: [userId], onDelete: Restrict)
+  images          PetImage[]
+  bookings        Booking[]
+  healthRecords   HealthRecord[]
+  matchPreference MatchPreference?
+  announcements   Announcement[]   @relation("AnnouncementPet")
+
+  @@index([ownerId])
+  @@index([species])
+  @@index([breed])
+}
+
+model PetImage {
+  id        String   @id @default(uuid()) @db.Uuid
+  petId     String   @db.Uuid
+  imageUrl  String
+  path      String?
+  createdAt DateTime @default(now())
+
+  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@index([petId])
+}
+
+model Service {
+  id                String      @id @default(uuid()) @db.Uuid
+  providerId        String      @db.Uuid
+  type              ServiceType
+  title             String
+  description       String
+  price             Decimal     @db.Decimal(10, 2)
+  location          String
+  availabilityNotes String?
+  isActive          Boolean     @default(true)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  provider UserProfile @relation("ServiceProvider", fields: [providerId], references: [userId], onDelete: Restrict)
+  bookings Booking[]
+  reviews  Review[]
+
+  @@index([providerId])
+  @@index([type])
+  @@index([isActive])
+  @@index([location])
+}
+
+model Booking {
+  id            String        @id @default(uuid()) @db.Uuid
+  petId         String        @db.Uuid
+  serviceId     String        @db.Uuid
+  ownerId       String        @db.Uuid
+  providerId    String        @db.Uuid
+  bookingDate   DateTime
+  durationHours Int?
+  status        BookingStatus @default(PENDING)
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  pet      Pet         @relation(fields: [petId], references: [id], onDelete: Restrict)
+  service  Service     @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  owner    UserProfile @relation("BookingOwner", fields: [ownerId], references: [userId], onDelete: Restrict)
+  provider UserProfile @relation("BookingProvider", fields: [providerId], references: [userId], onDelete: Restrict)
+  review   Review?
+
+  @@index([petId])
+  @@index([serviceId])
+  @@index([ownerId])
+  @@index([providerId])
+  @@index([status])
+  @@index([bookingDate])
+  @@index([providerId, bookingDate])
+}
+
+model Review {
+  id         String   @id @default(uuid()) @db.Uuid
+  bookingId  String   @unique @db.Uuid
+  serviceId  String   @db.Uuid
+  providerId String   @db.Uuid
+  authorId   String   @db.Uuid
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  booking  Booking     @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  service  Service     @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  provider UserProfile @relation("ReviewProvider", fields: [providerId], references: [userId], onDelete: Restrict)
+  author   UserProfile @relation("ReviewAuthor", fields: [authorId], references: [userId], onDelete: Restrict)
+
+  @@index([serviceId])
+  @@index([providerId])
+  @@index([authorId])
+  @@index([rating])
+}
+
+model HealthRecord {
+  id          String           @id @default(uuid()) @db.Uuid
+  petId       String           @db.Uuid
+  type        HealthRecordType
+  recordDate  DateTime
+  description String
+  notes       String?
+  nextDueDate DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@index([petId])
+  @@index([type])
+  @@index([recordDate])
+}
+
+model MatchPreference {
+  id                 String   @id @default(uuid()) @db.Uuid
+  petId              String   @unique @db.Uuid
+  preferredBreed     String?
+  preferredSex       PetSex?
+  minAge             Int?
+  maxAge             Int?
+  preferredLocation  String?
+  healthRequirements String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@index([preferredBreed])
+  @@index([preferredLocation])
+}
+
+model NotificationLog {
+  id          String              @id @default(uuid()) @db.Uuid
+  recipientId String              @db.Uuid
+  channel     NotificationChannel
+  status      NotificationStatus  @default(QUEUED)
+  title       String
+  message     String
+  payload     Json?
+  sentAt      DateTime?
+  createdAt   DateTime            @default(now())
+
+  recipient UserProfile @relation("NotificationRecipient", fields: [recipientId], references: [userId], onDelete: Cascade)
+
+  @@index([recipientId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Veterinary {
+  id           String                @id @default(uuid()) @db.Uuid
+  name         String
+  description  String?
+  phone        String?
+  email        String?
+  website      String?
+  address      String
+  city         String
+  lat          Decimal?              @db.Decimal(10, 7)
+  lng          Decimal?              @db.Decimal(10, 7)
+  specialties  VeterinarySpecialty[] @default([GENERAL])
+  imageUrl     String?
+  isPartner    Boolean               @default(false)
+  isActive     Boolean               @default(true)
+  operatingHours Json?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@index([city])
+  @@index([isPartner])
+  @@index([isActive])
+}
+
+model Announcement {
+  id           String           @id @default(uuid()) @db.Uuid
+  authorId     String           @db.Uuid
+  type         AnnouncementType
+  title        String
+  description  String
+  imageUrl     String?
+  contactPhone String?
+  contactEmail String?
+  location     String?
+  city         String?
+  lat          Decimal?         @db.Decimal(10, 7)
+  lng          Decimal?         @db.Decimal(10, 7)
+  petId        String?          @db.Uuid
+  isActive     Boolean          @default(true)
+  expiresAt    DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  author UserProfile @relation("AnnouncementAuthor", fields: [authorId], references: [userId], onDelete: Cascade)
+  pet    Pet?        @relation("AnnouncementPet", fields: [petId], references: [id], onDelete: SetNull)
+
+  @@index([authorId])
+  @@index([type])
+  @@index([city])
+  @@index([isActive])
+  @@index([expiresAt])
+}

@@ -1,0 +1,30 @@
+{
+  "name": "petlink-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PetLink — Monorepo con Turborepo, Next.js, Prisma y Supabase.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:auth": "turbo run dev --filter=@petlink/auth",
+    "dev:pets": "turbo run dev --filter=@petlink/pets",
+    "dev:marketplace": "turbo run dev --filter=@petlink/marketplace",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "prisma:generate": "turbo run prisma:generate",
+    "prisma:migrate": "cd packages/database && npx prisma migrate dev",
+    "prisma:studio": "cd packages/database && npx prisma studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.3",
+    "typescript": "^5.8.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "npm@10.0.0"
+}
