@@ -1,19 +1,19 @@
-import type { Metadata } from "next";
-import type { ReactNode } from "react";
-
-import { SessionProvider } from "@/context/session";
+import type { Metadata } from 'next'
+import '@/index.css'
 
 export const metadata: Metadata = {
-  title: "PetLink",
-  description: "PetLink — La plataforma de servicios para mascotas."
-};
+  title: 'PetLink',
+  description: 'Conecta con los mejores servicios para tu mascota',
+}
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <html lang="es">
-      <body>
-        <SessionProvider>{children}</SessionProvider>
-      </body>
+    <html lang="es" suppressHydrationWarning>
+      <body suppressHydrationWarning>{children}</body>
     </html>
-  );
+  )
 }
