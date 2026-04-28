@@ -85,8 +85,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const me = await refreshProfile({ silentUnauthorized: true });
-      if (me) setSession({ access_token: token, refresh_token: "", user: { id: me.userId } });
+      // On bootstrap we should not show toasts; stale tokens are common after deploys.
+      const me = await refreshProfile({ silent: true, silentUnauthorized: true });
+      if (me) {
+        setSession({ access_token: token, refresh_token: "", user: { id: me.userId } });
+      } else {
+        clearAccessToken();
+        setSession(null);
+        setProfile(null);
+      }
       setLoading(false);
     })();
   }, []);
