@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { clearAccessToken } from "@/lib/api";
+import { ApiError, clearAccessToken, getAccessToken } from "@/lib/api";
 import { authApi } from "@/lib/petlink-api";
 import type { Profile, Role } from "@/lib/petlink-data";
 import { toast } from "sonner";
@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRoleState("OWNER");
   }
 
-  async function refreshProfile() {
+  async function refreshProfile(options?: { silentUnauthorized?: boolean }) {
     try {
       const me = await authApi.getMe();
       if (!isRole(me.role)) throw new Error("Tu cuenta no tiene un rol válido");
@@ -48,6 +48,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setRoleState(me.role);
       return me;
     } catch (error) {
+      if (options?.silentUnauthorized && error instanceof ApiError && error.status === 401) {
+        return null;
+      }
       toast.error(error instanceof Error ? error.message : "No se pudo cargar tu perfil");
       return null;
     }
@@ -66,9 +69,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    void refreshProfile().then((me) => {
-      if (me) setSession({ access_token: "", refresh_token: "", user: { id: me.userId } });
-    }).finally(() => setLoading(false));
+    void (async () => {
+      const token = await getAccessToken();
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      const me = await refreshProfile({ silentUnauthorized: true });
+      if (me) setSession({ access_token: token, refresh_token: "", user: { id: me.userId } });
+      setLoading(false);
+    })();
   }, []);
 
   const value = useMemo<AuthContextValue>(() => ({
