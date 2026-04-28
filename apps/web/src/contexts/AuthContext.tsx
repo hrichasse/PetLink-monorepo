@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRoleState("OWNER");
   }
 
-  async function refreshProfile(options?: { silentUnauthorized?: boolean }) {
+  async function refreshProfile(options?: { silentUnauthorized?: boolean; silent?: boolean }) {
     try {
       const me = await authApi.getMe();
       if (!isRole(me.role)) throw new Error("Tu cuenta no tiene un rol válido");
@@ -51,16 +51,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (options?.silentUnauthorized && error instanceof ApiError && error.status === 401) {
         return null;
       }
+      if (options?.silent) {
+        return null;
+      }
       toast.error(error instanceof Error ? error.message : "No se pudo cargar tu perfil");
       return null;
     }
   }
 
-  async function provisionAndLoad(currentSession: PetLinkSession) {
+  async function provisionAndLoad(currentSession: PetLinkSession, options?: { silent?: boolean }) {
     const fullName = String(currentSession.user.user_metadata?.full_name ?? currentSession.user.email?.split("@")[0] ?? "Usuario PetLink");
-    await authApi.provisionUser({ fullName, phone: null, city: null });
-    const me = await refreshProfile();
+    try {
+      await authApi.provisionUser({ fullName, phone: null, city: null });
+    } catch (error) {
+      if (!options?.silent) throw error;
+    }
+
+    const me = await refreshProfile({ silent: options?.silent });
     if (!me) {
+      if (options?.silent) return;
       clearAccessToken();
       setSession(null);
       setProfile(null);
@@ -92,14 +101,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn: async (email, password) => {
       const nextSession = await authApi.login({ email, password });
       setSession(nextSession);
-      await provisionAndLoad(nextSession);
+      await provisionAndLoad(nextSession, { silent: true });
       toast.success("Bienvenido de vuelta a PetLink");
     },
     signUp: async (email, password, fullName, selectedRole) => {
       const nextSession = await authApi.signup({ email, password, fullName, role: selectedRole });
       setRoleState(selectedRole);
       setSession(nextSession);
-      await provisionAndLoad(nextSession);
+      await provisionAndLoad(nextSession, { silent: true });
       toast.success("Cuenta creada. Revisa tu correo si se requiere confirmación.");
     },
     sendMagicLink: async (email) => {
