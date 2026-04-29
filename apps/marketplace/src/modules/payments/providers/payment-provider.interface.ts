@@ -20,4 +20,10 @@ export interface PaymentProviderAdapter {
   readonly provider: PrismaPaymentProvider;
   createCheckout(input: CreateProviderCheckoutInput): Promise<PaymentCheckoutSession>;
   parseWebhookPayload(payload: Record<string, unknown>): Promise<ParsedProviderWebhook>;
+  /**
+   * Optional: Verify the authenticity of an incoming webhook request using provider-specific
+   * signature headers. Return `true` if valid or if no secret is configured (dev mode).
+   * Return `false` to reject the request with 401.
+   */
+  verifyWebhookRequest?(headers: Record<string, string | null>, rawBody: string): boolean;
 }

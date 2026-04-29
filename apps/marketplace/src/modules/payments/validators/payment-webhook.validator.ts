@@ -11,13 +11,23 @@ const optionalTrimmedString = (maxLength: number) =>
 
 export const paymentWebhookSchema = z
   .object({
-    eventType: z.string().trim().min(1).max(120),
+    // Normalized format
+    eventType: z.string().trim().min(1).max(120).optional(),
     externalEventId: optionalTrimmedString(191),
     paymentId: z.string().uuid().optional(),
     providerPaymentId: optionalTrimmedString(191),
     providerReference: optionalTrimmedString(191),
     status: z.nativeEnum(PaymentStatus).optional(),
     paymentMethod: optionalTrimmedString(120),
-    metadata: z.record(z.string(), z.unknown()).optional()
+    metadata: z.record(z.string(), z.unknown()).optional(),
+    // MercadoPago native fields
+    action: optionalTrimmedString(120),
+    type: optionalTrimmedString(120),
+    data: z.record(z.string(), z.unknown()).optional(),
+    // Transbank native fields
+    token_ws: optionalTrimmedString(191),
+    TBK_TOKEN: optionalTrimmedString(191),
+    TBK_ORDEN_COMPRA: optionalTrimmedString(191),
+    TBK_ID_SESION: optionalTrimmedString(191)
   })
   .passthrough();

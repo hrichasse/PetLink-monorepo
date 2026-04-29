@@ -26,7 +26,16 @@ type ProfileValues = z.infer<typeof profileSchema>;
 type ServiceValues = z.infer<typeof serviceSchema>;
 type BookingValues = z.infer<typeof bookingSchema>;
 type MatchFormValues = {
+  useRegisteredPet: boolean;
   petId: string;
+  petName: string;
+  petSpecies: string;
+  petBreed: string;
+  petAge: string;
+  petWeight: string;
+  petSex: "MALE" | "FEMALE";
+  petDescription: string;
+  preferredCity: string;
   preferredBreed: string;
   preferredSex: "" | "MALE" | "FEMALE";
   minAge: string;
@@ -71,11 +80,38 @@ export function PetDetailPage() { const { id } = useParams(); const navigate = u
 export function ServicesPage() { const [location, setLocation] = useState(""); const [type, setType] = useState(""); const { data = [], isLoading, error } = useQuery({ queryKey: ["services", type, location], queryFn: () => marketplaceApi.services.list({ type, location, isActive: true }) }); return <Page title="Explorar servicios" action={<Button variant="soft"><Search />Filtros</Button>}><div className="mb-5 grid gap-3 md:grid-cols-4"><input className="input-shell md:col-span-2" placeholder="Ciudad" value={location} onChange={(e) => setLocation(e.target.value)} aria-label="Buscar servicios por ciudad" /><input className="input-shell" placeholder="Tipo" value={type} onChange={(e) => setType(e.target.value)} aria-label="Categoría" /><select className="input-shell" aria-label="Orden"><option>Disponibles</option></select></div>{isLoading ? <SkeletonGrid /> : error ? <EmptyState title="No se pudieron cargar los servicios" description={error instanceof Error ? error.message : "Intenta nuevamente."} /> : data.length ? <div className="grid gap-5 md:grid-cols-3">{data.map((service) => <Link key={service.id} to={`/services/${service.id}`}><ServiceCard service={service} /></Link>)}</div> : <EmptyState title="Sin servicios" description="No hay servicios disponibles con esos filtros." />}</Page>; }
 
 export function MatchPage() {
+  const queryClient = useQueryClient();
   const handleError = useApiError();
   const [submittedPetId, setSubmittedPetId] = useState<string>("");
+  const [matchPhotoFiles, setMatchPhotoFiles] = useState<File[]>([]);
+  const [matchPhotoPreviewUrls, setMatchPhotoPreviewUrls] = useState<string[]>([]);
+  const [preferredLat, setPreferredLat] = useState<number | null>(null);
+  const [preferredLng, setPreferredLng] = useState<number | null>(null);
+  const [createdProfile, setCreatedProfile] = useState<{
+    name: string;
+    species: string;
+    breed: string;
+    age: number;
+    sex: "MALE" | "FEMALE";
+    imageUrl: string | null;
+    location: string | null;
+    city: string | null;
+    lat: number | null;
+    lng: number | null;
+  } | null>(null);
+
   const form = useForm<MatchFormValues>({
     defaultValues: {
+      useRegisteredPet: true,
       petId: "",
+      petName: "",
+      petSpecies: "",
+      petBreed: "",
+      petAge: "",
+      petWeight: "",
+      petSex: "FEMALE",
+      petDescription: "",
+      preferredCity: "",
       preferredBreed: "",
       preferredSex: "",
       minAge: "",
@@ -86,14 +122,93 @@ export function MatchPage() {
   });
 
   const pets = useQuery({ queryKey: ["pets"], queryFn: petsApi.list });
+  const useRegisteredPet = form.watch("useRegisteredPet");
+  const preferredLocation = form.watch("preferredLocation");
+  const preferredCity = form.watch("preferredCity");
+  const hasRegisteredPets = (pets.data?.length ?? 0) > 0;
+
   const matches = useQuery({
     queryKey: ["match", submittedPetId],
     queryFn: () => petsApi.match.findCompatible({ petId: submittedPetId, limit: 20 }),
     enabled: Boolean(submittedPetId)
   });
+  const matchResults = matches.data ?? [];
+  const averageScore = matchResults.length ? Math.round(matchResults.reduce((acc, item) => acc + item.compatibilityScore, 0) / matchResults.length) : 0;
+  const topMatch = matchResults[0] ?? null;
+  const secondaryMatches = topMatch ? matchResults.slice(1) : [];
 
   const savePreferences = useMutation({
-    mutationFn: (values: MatchFormValues) => {
+    mutationFn: async (values: MatchFormValues) => {
+      const shouldUseRegisteredPet = values.useRegisteredPet && hasRegisteredPets;
+      let selectedPetId = values.petId;
+      let selectedPetSummary = {
+        name: "",
+        species: "",
+        breed: "",
+        age: 0,
+        sex: "FEMALE" as "MALE" | "FEMALE",
+        imageUrl: null as string | null
+      };
+
+      if (shouldUseRegisteredPet) {
+        if (!values.petId) throw new Error("Selecciona una mascota.");
+        const sourcePet = pets.data?.find((pet) => pet.id === values.petId);
+        if (!sourcePet) throw new Error("La mascota seleccionada no existe.");
+        selectedPetSummary = {
+          name: sourcePet.name,
+          species: sourcePet.species,
+          breed: sourcePet.breed,
+          age: sourcePet.age,
+          sex: sourcePet.sex,
+          imageUrl: sourcePet.imageUrl ?? sourcePet.image_url ?? null
+        };
+      } else {
+        const age = Number(values.petAge);
+        const weight = Number(values.petWeight);
+
+        if (!values.petName.trim()) throw new Error("Ingresa el nombre de la mascota para match.");
+        if (!values.petSpecies.trim()) throw new Error("Ingresa la especie de la mascota para match.");
+        if (!values.petBreed.trim()) throw new Error("Ingresa la raza de la mascota para match.");
+        if (Number.isNaN(age) || age < 0 || age > 100) throw new Error("Edad de mascota inválida.");
+        if (Number.isNaN(weight) || weight <= 0) throw new Error("Peso de mascota inválido.");
+
+        const createdPet = await petsApi.create({
+          name: values.petName.trim(),
+          species: values.petSpecies.trim(),
+          breed: values.petBreed.trim(),
+          age,
+          weight,
+          sex: values.petSex,
+          description: values.petDescription.trim() || null,
+          isSterilized: false,
+          isVaccinated: true
+        });
+
+        selectedPetId = createdPet.id;
+        selectedPetSummary = {
+          name: createdPet.name,
+          species: createdPet.species,
+          breed: createdPet.breed,
+          age: createdPet.age,
+          sex: createdPet.sex,
+          imageUrl: createdPet.imageUrl ?? createdPet.image_url ?? null
+        };
+
+        if (matchPhotoFiles.length > 0) {
+          try {
+            const uploaded = await petsApi.uploadImage(createdPet.id, matchPhotoFiles[0]);
+            selectedPetSummary.imageUrl = uploaded.url;
+            if (matchPhotoFiles.length > 1) {
+              toast.success("Se subió la foto principal. Las fotos extra quedan como vista previa por ahora.");
+            }
+          } catch {
+            toast.error("La mascota se creó, pero la foto no se pudo subir.");
+          }
+        }
+
+        await queryClient.invalidateQueries({ queryKey: ["pets"] });
+      }
+
       const minAge = values.minAge.trim() ? Number(values.minAge) : null;
       const maxAge = values.maxAge.trim() ? Number(values.maxAge) : null;
 
@@ -109,8 +224,8 @@ export function MatchPage() {
         throw new Error("La edad máxima no puede ser menor que la mínima.");
       }
 
-      return petsApi.match.savePreferences({
-        petId: values.petId,
+      await petsApi.match.savePreferences({
+        petId: selectedPetId,
         preferredBreed: values.preferredBreed.trim() || null,
         preferredSex: values.preferredSex || null,
         minAge,
@@ -118,15 +233,257 @@ export function MatchPage() {
         preferredLocation: values.preferredLocation.trim() || null,
         healthRequirements: values.healthRequirements.trim() || null
       });
+
+      return {
+        petId: selectedPetId,
+        summary: selectedPetSummary,
+        location: values.preferredLocation.trim() || null,
+        city: values.preferredCity.trim() || null,
+        lat: preferredLat,
+        lng: preferredLng
+      };
     },
     onError: handleError,
-    onSuccess: (_, values) => {
-      setSubmittedPetId(values.petId);
+    onSuccess: (result) => {
+      setSubmittedPetId(result.petId);
+      setCreatedProfile({
+        ...result.summary,
+        location: result.location,
+        city: result.city,
+        lat: result.lat,
+        lng: result.lng
+      });
       toast.success("Preferencias guardadas. Buscando mascotas compatibles...");
     }
   });
 
-  return <Page title="Match de mascotas"><section className="rounded-card border bg-card p-6 shadow-soft"><h2 className="text-xl font-black">Preferencias de compatibilidad</h2><p className="mt-1 text-sm text-muted-foreground">Selecciona una mascota y define sus preferencias para encontrar matches recomendados.</p><form className="mt-5 grid gap-4 md:grid-cols-2" onSubmit={form.handleSubmit((values) => savePreferences.mutate(values))}><label className="block text-sm font-bold">Mascota<select className="input-shell mt-2" {...form.register("petId", { required: true })}><option value="">Selecciona una mascota</option>{pets.data?.map((pet) => <option key={pet.id} value={pet.id}>{pet.name} ({pet.species})</option>)}</select></label><Input label="Raza preferida" props={form.register("preferredBreed")} /><label className="block text-sm font-bold">Sexo preferido<select className="input-shell mt-2" {...form.register("preferredSex")}><option value="">Cualquiera</option><option value="FEMALE">Hembra</option><option value="MALE">Macho</option></select></label><Input label="Ubicación preferida" props={form.register("preferredLocation")} /><Input label="Edad mínima" type="number" props={form.register("minAge")} /><Input label="Edad máxima" type="number" props={form.register("maxAge")} /><label className="md:col-span-2 block text-sm font-bold">Requisitos de salud<textarea className="input-shell mt-2 min-h-24" {...form.register("healthRequirements")} placeholder="Ejemplo: vacunas al día, esterilizada, sin condiciones crónicas" /></label><Button className="md:col-span-2" variant="hero" disabled={savePreferences.isPending || pets.isLoading}>{savePreferences.isPending ? "Guardando y buscando..." : "Guardar preferencias y buscar"}</Button></form></section><section className="mt-6"><h2 className="mb-4 text-2xl font-black">Resultados compatibles</h2>{matches.isLoading ? <SkeletonGrid /> : matches.error ? <EmptyState title="No se pudieron cargar los matches" description={matches.error instanceof Error ? matches.error.message : "Intenta nuevamente."} /> : !submittedPetId ? <EmptyState title="Aún no has buscado" description="Guarda las preferencias para ver mascotas compatibles." /> : matches.data?.length ? <div className="grid gap-5 md:grid-cols-2">{matches.data.map((item) => <article key={item.pet.id} className="rounded-card border bg-card p-5 shadow-soft"><div className="flex items-center justify-between gap-4"><h3 className="text-lg font-extrabold">{item.pet.name}</h3><span className="rounded-full bg-primary-soft px-3 py-1 text-xs font-bold text-primary">Compatibilidad {item.compatibilityScore}%</span></div><p className="mt-2 text-sm text-muted-foreground">{item.pet.species} · {item.pet.breed} · {item.pet.age} años</p><p className="mt-1 text-sm text-muted-foreground">Sexo: {item.pet.sex === "FEMALE" ? "Hembra" : "Macho"} · Peso: {item.pet.weight} kg</p><div className="mt-4"><p className="text-sm font-bold">Por qué es compatible</p><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">{item.reasons.map((reason, index) => <li key={`${item.pet.id}-${index}`}>{reason}</li>)}</ul></div></article>)}</div> : <EmptyState title="Sin resultados" description="No encontramos matches con estos criterios. Prueba ampliar las preferencias." />}</section></Page>;
+  return (
+    <Page title="Match de mascotas">
+      <section className="rounded-card border bg-card p-6 shadow-soft">
+        <div className="rounded-card border bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4">
+          <h2 className="text-xl font-black">Preferencias de compatibilidad</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Crea un perfil rápido o usa una mascota registrada para encontrar matches recomendados.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
+            <span className="rounded-full bg-secondary px-3 py-1 text-secondary-foreground">Mascota base: {submittedPetId ? "Definida" : "Pendiente"}</span>
+            <span className="rounded-full bg-primary-soft px-3 py-1 text-primary">Resultados: {matchResults.length}</span>
+            <span className="rounded-full bg-primary/10 px-3 py-1 text-primary">Compatibilidad media: {averageScore}%</span>
+          </div>
+        </div>
+
+        <form className="mt-5 grid gap-4 md:grid-cols-2" onSubmit={form.handleSubmit((values) => savePreferences.mutate(values))}>
+          <div className="md:col-span-2 rounded-card border p-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Modo de búsqueda</p>
+            <div className="mt-2 grid gap-2 md:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => form.setValue("useRegisteredPet", true)}
+                disabled={!hasRegisteredPets}
+                className={`rounded-card border px-4 py-3 text-left text-sm font-bold transition-colors ${useRegisteredPet && hasRegisteredPets ? "border-primary bg-primary-soft text-primary" : "hover:bg-accent"}`}
+              >
+                Usar mascota registrada
+                <span className="mt-1 block text-xs font-normal text-muted-foreground">Ideal si ya tienes su ficha creada.</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => form.setValue("useRegisteredPet", false)}
+                className={`rounded-card border px-4 py-3 text-left text-sm font-bold transition-colors ${!useRegisteredPet || !hasRegisteredPets ? "border-primary bg-primary-soft text-primary" : "hover:bg-accent"}`}
+              >
+                Perfil rápido de match
+                <span className="mt-1 block text-xs font-normal text-muted-foreground">Para usuarios sin mascota registrada.</span>
+              </button>
+            </div>
+            {!hasRegisteredPets ? <p className="mt-2 text-xs text-muted-foreground">No hay mascotas registradas todavía, usarás perfil rápido automáticamente.</p> : null}
+          </div>
+
+          {useRegisteredPet && hasRegisteredPets ? (
+            <label className="md:col-span-2 block text-sm font-bold">
+              Mascota
+              <select className="input-shell mt-2" {...form.register("petId")}>
+                <option value="">Selecciona una mascota</option>
+                {pets.data?.map((pet) => <option key={pet.id} value={pet.id}>{pet.name} ({pet.species})</option>)}
+              </select>
+            </label>
+          ) : (
+            <>
+              <Input label="Nombre mascota" props={form.register("petName")} />
+              <Input label="Especie" props={form.register("petSpecies")} />
+              <Input label="Raza" props={form.register("petBreed")} />
+              <label className="block text-sm font-bold">Sexo<select className="input-shell mt-2" {...form.register("petSex")}><option value="FEMALE">Hembra</option><option value="MALE">Macho</option></select></label>
+              <Input label="Edad" type="number" props={form.register("petAge")} />
+              <Input label="Peso (kg)" type="number" props={form.register("petWeight")} />
+
+              <label className="md:col-span-2 block text-sm font-bold">
+                Descripción
+                <textarea className="input-shell mt-2 min-h-20" {...form.register("petDescription")} />
+              </label>
+
+              <label className="md:col-span-2 block text-sm font-bold">
+                Foto de mascota match
+                <div className="mt-2 rounded-card border border-dashed p-4">
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <ImagePlus className="text-primary" />
+                    <span>Sube una foto para que el perfil de match se vea más completo.</span>
+                  </div>
+                  <input
+                    className="mt-3 block w-full text-sm"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    onChange={(event) => {
+                      const files = Array.from(event.target.files ?? []);
+                      setMatchPhotoFiles(files);
+                      setMatchPhotoPreviewUrls(files.map((file) => URL.createObjectURL(file)));
+                    }}
+                  />
+                </div>
+              </label>
+
+              {matchPhotoPreviewUrls.length ? (
+                <div className="md:col-span-2">
+                  <div className="flex gap-3 overflow-x-auto pb-1">
+                    {matchPhotoPreviewUrls.map((url, index) => (
+                      <img key={`${url}-${index}`} src={url} alt={`Vista previa ${index + 1}`} className="h-24 w-24 flex-none rounded-2xl border object-cover" />
+                    ))}
+                  </div>
+                  <img src={matchPhotoPreviewUrls[0]} alt="Foto principal mascota match" className="mt-3 h-48 w-full rounded-card border object-cover" />
+                </div>
+              ) : null}
+            </>
+          )}
+
+          <div className="md:col-span-2 mt-2 border-t pt-4">
+            <h3 className="text-lg font-black">Preferencias del match</h3>
+          </div>
+
+          <Input label="Raza preferida" props={form.register("preferredBreed")} />
+          <label className="block text-sm font-bold">Sexo preferido<select className="input-shell mt-2" {...form.register("preferredSex")}><option value="">Cualquiera</option><option value="FEMALE">Hembra</option><option value="MALE">Macho</option></select></label>
+
+          <AddressAutocompleteInput
+            label="Ubicación preferida"
+            value={preferredLocation}
+            onChange={(value) => form.setValue("preferredLocation", value, { shouldDirty: true, shouldValidate: true })}
+            onSelect={(selection) => {
+              form.setValue("preferredLocation", selection.address, { shouldDirty: true, shouldValidate: true });
+              form.setValue("preferredCity", selection.city ?? "", { shouldDirty: true });
+              setPreferredLat(selection.lat ?? null);
+              setPreferredLng(selection.lng ?? null);
+            }}
+          />
+          <Input label="Ciudad / Comuna" props={form.register("preferredCity")} />
+
+          <Input label="Edad mínima" type="number" props={form.register("minAge")} />
+          <Input label="Edad máxima" type="number" props={form.register("maxAge")} />
+
+          <label className="md:col-span-2 block text-sm font-bold">
+            Requisitos de salud
+            <textarea className="input-shell mt-2 min-h-24" {...form.register("healthRequirements")} placeholder="Ejemplo: vacunas al día, esterilizada, sin condiciones crónicas" />
+          </label>
+
+          <LocationMap className="md:col-span-2" title="Ubicación preferida" address={preferredLocation || undefined} city={preferredCity || undefined} lat={preferredLat ?? undefined} lng={preferredLng ?? undefined} />
+
+          <Button className="md:col-span-2" variant="hero" disabled={savePreferences.isPending || pets.isLoading}>
+            {savePreferences.isPending ? "Guardando y buscando..." : "Guardar preferencias y buscar"}
+          </Button>
+        </form>
+      </section>
+
+      {createdProfile ? (
+        <section className="mt-6 rounded-card border bg-card p-6 shadow-soft">
+          <h2 className="text-xl font-black">Perfil match creado</h2>
+          <div className="mt-4 grid gap-5 md:grid-cols-[1fr_1.2fr]">
+            {createdProfile.imageUrl ? <img src={createdProfile.imageUrl} alt="Foto perfil match" className="h-64 w-full rounded-card border object-cover" /> : <div className="grid h-64 place-items-center rounded-card border text-sm text-muted-foreground">Sin foto</div>}
+            <div className="rounded-card border bg-background p-4">
+              <p className="text-sm"><strong>Nombre:</strong> {createdProfile.name}</p>
+              <p className="mt-1 text-sm"><strong>Especie:</strong> {createdProfile.species}</p>
+              <p className="mt-1 text-sm"><strong>Raza:</strong> {createdProfile.breed}</p>
+              <p className="mt-1 text-sm"><strong>Edad:</strong> {createdProfile.age} años</p>
+              <p className="mt-1 text-sm"><strong>Sexo:</strong> {createdProfile.sex === "FEMALE" ? "Hembra" : "Macho"}</p>
+              <p className="mt-1 text-sm"><strong>Ubicación:</strong> {createdProfile.location ?? "No definida"}</p>
+              <div className="mt-4 flex gap-2">
+                <span className="rounded-full bg-secondary px-3 py-1 text-xs font-bold text-secondary-foreground">{createdProfile.species}</span>
+                <span className="rounded-full bg-primary-soft px-3 py-1 text-xs font-bold text-primary">{createdProfile.breed}</span>
+              </div>
+            </div>
+          </div>
+          {createdProfile.location ? <LocationMap className="mt-4" title="Mapa del perfil match" address={createdProfile.location || undefined} city={createdProfile.city || undefined} lat={createdProfile.lat ?? undefined} lng={createdProfile.lng ?? undefined} /> : null}
+        </section>
+      ) : null}
+
+      <section className="mt-6">
+        <h2 className="mb-4 text-2xl font-black">Resultados compatibles</h2>
+
+        {topMatch ? (
+          <article className="mb-5 rounded-card border bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-5 shadow-soft">
+            <p className="text-xs font-bold uppercase tracking-wider text-primary">Top Match</p>
+            <div className="mt-2 flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-2xl font-black">{topMatch.pet.name}</h3>
+                <p className="text-sm text-muted-foreground">{topMatch.pet.species} · {topMatch.pet.breed} · {topMatch.pet.age} años</p>
+              </div>
+              <span className="rounded-full bg-primary px-4 py-2 text-sm font-black text-primary-foreground">{topMatch.compatibilityScore}%</span>
+            </div>
+            <div className="mt-3 h-2 rounded-full bg-background">
+              <div className="h-2 rounded-full bg-primary transition-all duration-700" style={{ width: `${Math.max(10, Math.min(100, topMatch.compatibilityScore))}%` }} />
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <p className="grow text-sm text-muted-foreground">
+                {topMatch.reasons[0] ?? "Alta compatibilidad detectada."}
+              </p>
+              <button
+                type="button"
+                onClick={() => toast.success(`Interés en ${topMatch.pet.name} registrado. Pronto podrás contactar al dueño.`)}
+                className="shrink-0 rounded-full bg-primary px-5 py-2 text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                Contactar dueño
+              </button>
+            </div>
+          </article>
+        ) : null}
+
+        {matches.isLoading ? (
+          <SkeletonGrid />
+        ) : matches.error ? (
+          <EmptyState title="No se pudieron cargar los matches" description={matches.error instanceof Error ? matches.error.message : "Intenta nuevamente."} />
+        ) : !submittedPetId ? (
+          <EmptyState title="Aún no has buscado" description="Guarda las preferencias para ver mascotas compatibles." />
+        ) : matchResults.length ? (
+          secondaryMatches.length ? (
+            <div className="grid gap-5 md:grid-cols-2">
+              {secondaryMatches.map((item) => (
+                <article key={item.pet.id} className="rounded-card border bg-card p-5 shadow-soft">
+                  <div className="flex items-center justify-between gap-4">
+                    <h3 className="text-lg font-extrabold">{item.pet.name}</h3>
+                    <span className="rounded-full bg-primary-soft px-3 py-1 text-xs font-bold text-primary">{item.compatibilityScore}%</span>
+                  </div>
+
+                  <div className="mt-3 h-2 rounded-full bg-muted">
+                    <div className="h-2 rounded-full bg-primary" style={{ width: `${Math.max(8, Math.min(100, item.compatibilityScore))}%` }} />
+                  </div>
+
+                  <p className="mt-3 text-sm text-muted-foreground">{item.pet.species} · {item.pet.breed} · {item.pet.age} años · {item.pet.sex === "FEMALE" ? "Hembra" : "Macho"}</p>
+
+                  <div className="mt-4 rounded-card border bg-background p-3">
+                    <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Motivos de compatibilidad</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                      {item.reasons.map((reason, index) => (
+                        <li key={`${item.pet.id}-${index}`}>{reason}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-card border bg-card p-4 text-sm text-muted-foreground">Solo hay un resultado y ya está resaltado como Top Match.</div>
+          )
+        ) : (
+          <EmptyState title="Sin resultados" description="No encontramos matches con estos criterios. Prueba ampliar las preferencias." />
+        )}
+      </section>
+    </Page>
+  );
 }
 
 export function ServiceDetailPage() {
