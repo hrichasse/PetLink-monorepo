@@ -4,6 +4,9 @@ import '@/index.css'
 export const metadata: Metadata = {
   title: 'PetLink',
   description: 'Conecta con los mejores servicios para tu mascota',
+  icons: {
+    icon: '/favicon-paw.png',
+  },
 }
 
 export default function RootLayout({

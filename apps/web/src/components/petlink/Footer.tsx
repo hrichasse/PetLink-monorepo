@@ -1,4 +1,4 @@
-import { Mail, MapPin, Phone, Clock3 } from "lucide-react";
+import { Mail, MapPin, Phone, Clock3, ShieldCheck } from "lucide-react";
 
 export function PetlinkFooter() {
   return (
@@ -46,6 +46,35 @@ export function PetlinkFooter() {
             <li className="flex items-center gap-2"><Clock3 className="h-4 w-4 text-primary" /> Lun a Vie 10:00 a 19:00</li>
           </ul>
         </section>
+      </div>
+
+      <div className="mx-auto max-w-7xl px-4 pb-10">
+        <div className="rounded-2xl border border-slate-300/70 bg-white/75 p-4 shadow-soft backdrop-blur md:p-5">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              Pagos seguros y certificados
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <img
+                  src="/payments/mercado-pago.png"
+                  alt="Mercado Pago"
+                  className="h-16 w-auto max-w-full object-contain md:h-20"
+                  loading="lazy"
+                />
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <img
+                  src="/payments/webpay-plus-redcompra.png"
+                  alt="Webpay Plus y RedCompra Transbank"
+                  className="h-16 w-auto max-w-full object-contain md:h-20"
+                  loading="lazy"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="bg-primary px-4 py-3 text-center text-sm font-bold text-primary-foreground">
