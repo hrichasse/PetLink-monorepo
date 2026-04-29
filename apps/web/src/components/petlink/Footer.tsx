@@ -49,29 +49,49 @@ export function PetlinkFooter() {
       </div>
 
       <div className="mx-auto max-w-7xl px-4 pb-10">
-        <div className="rounded-2xl border border-slate-300/70 bg-white/75 p-4 shadow-soft backdrop-blur md:p-5">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
-              <ShieldCheck className="h-4 w-4 text-primary" />
-              Pagos seguros y certificados
+        <div className="relative overflow-hidden rounded-3xl border border-slate-700/40 bg-gradient-to-br from-slate-900/95 via-slate-800/90 to-slate-900/95 p-4 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8),inset_0_1px_1px_0_rgba(255,255,255,0.1)] backdrop-blur-lg md:p-8">
+          <div className="pointer-events-none absolute -right-32 -top-32 h-64 w-64 rounded-full bg-blue-500/5 blur-3xl" />
+          <div className="pointer-events-none absolute -left-32 -bottom-32 h-64 w-64 rounded-full bg-slate-600/5 blur-3xl" />
+          
+          <div className="relative z-10 flex flex-col gap-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3 text-base font-extrabold text-white">
+                <div className="rounded-full bg-gradient-to-br from-sky-400 to-blue-500 p-2">
+                  <ShieldCheck className="h-5 w-5 text-white" />
+                </div>
+                <span>Pagos seguros y certificados</span>
+              </div>
+              <span className="rounded-full border border-slate-600/60 bg-slate-800/70 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                Métodos de pago verificados
+              </span>
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <img
-                  src="/payments/mercado-pago.png"
-                  alt="Mercado Pago"
-                  className="h-16 w-auto max-w-full object-contain md:h-20"
-                  loading="lazy"
-                />
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <img
-                  src="/payments/webpay-plus-redcompra.png"
-                  alt="Webpay Plus y RedCompra Transbank"
-                  className="h-16 w-auto max-w-full object-contain md:h-20"
-                  loading="lazy"
-                />
-              </div>
+
+            <div className="grid gap-5 md:grid-cols-[1.2fr_1fr]">
+              <article className="group relative overflow-hidden rounded-2xl border border-slate-700/60 bg-gradient-to-br from-slate-800/80 to-slate-700/60 px-5 py-5 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.6)] transition-all duration-300 hover:-translate-y-1 hover:border-slate-600/80 hover:shadow-[0_16px_40px_-8px_rgba(59,130,246,0.2)] md:px-6 md:py-6">
+                <div className="pointer-events-none absolute -right-16 -top-16 h-32 w-32 rounded-full bg-sky-400/10 blur-2xl transition-opacity duration-300 group-hover:bg-sky-400/15" />
+                <div className="relative z-10">
+                  <img
+                    src="/payments/mercado-pago-clean.png"
+                    alt="Mercado Pago"
+                    className="h-20 w-auto max-w-full object-contain md:h-24"
+                    loading="lazy"
+                  />
+                  <p className="mt-3 text-xs font-semibold tracking-wide text-slate-400">Transacciones encriptadas y aseguradas</p>
+                </div>
+              </article>
+
+              <article className="group relative overflow-hidden rounded-2xl border border-slate-700/60 bg-gradient-to-br from-slate-800/80 to-slate-700/60 px-5 py-5 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.6)] transition-all duration-300 hover:-translate-y-1 hover:border-slate-600/80 hover:shadow-[0_16px_40px_-8px_rgba(239,68,68,0.2)] md:px-6 md:py-6">
+                <div className="pointer-events-none absolute -right-16 -top-16 h-32 w-32 rounded-full bg-red-400/10 blur-2xl transition-opacity duration-300 group-hover:bg-red-400/15" />
+                <div className="relative z-10">
+                  <img
+                    src="/payments/webpay-plus-redcompra-clean.png"
+                    alt="Webpay Plus y RedCompra Transbank"
+                    className="h-20 w-auto max-w-full object-contain md:h-24"
+                    loading="lazy"
+                  />
+                  <p className="mt-3 text-xs font-semibold tracking-wide text-slate-400">Válida en todo Chile con máxima seguridad</p>
+                </div>
+              </article>
             </div>
           </div>
         </div>
