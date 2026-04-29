@@ -34,7 +34,7 @@ export const usersRepository = {
         phone: data.phone ?? null,
         city: data.city ?? null,
         location: data.location ?? null,
-        role: "OWNER"
+        role: data.role ?? "OWNER"
       }
     }),
 

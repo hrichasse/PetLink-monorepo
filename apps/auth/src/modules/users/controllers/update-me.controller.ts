@@ -9,6 +9,10 @@ import { AppError } from "@petlink/shared";
 import { ERROR_CODES } from "@petlink/shared";
 import { ok } from "@petlink/shared";
 
+function isUserRole(value: string | undefined): value is "OWNER" | "PROVIDER" | "ADMIN" {
+  return value === "OWNER" || value === "PROVIDER" || value === "ADMIN";
+}
+
 const parseBody = async (request: NextRequest): Promise<unknown> => {
   try {
     return await request.json();
@@ -33,6 +37,17 @@ export const updateMeController = async (request: NextRequest): Promise<NextResp
       details: validationResult.error.flatten()
     });
   }
+
+  const fallbackFullName = authUser.email?.split("@")[0] ?? "Usuario PetLink";
+  const fallbackProfile: import("@/modules/users/dtos").CreateUserProfileDto = {
+    fullName: fallbackFullName,
+    phone: null,
+    city: null,
+    location: null
+  };
+  if (isUserRole(authUser.role)) fallbackProfile.role = authUser.role;
+
+  await usersService.ensureAuthenticatedProfile(authUser.userId, fallbackProfile);
 
   const profile = await usersService.updateAuthenticatedProfile(authUser.userId, validationResult.data);
 

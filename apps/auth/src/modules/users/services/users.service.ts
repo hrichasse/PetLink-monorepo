@@ -33,6 +33,11 @@ export const usersService = {
     return profile;
   },
 
+  ensureAuthenticatedProfile: async (authUserId: string, payload: CreateUserProfileDto): Promise<UserProfileModel> => {
+    const { profile } = await usersService.createOrGetProfile(authUserId, payload);
+    return profile;
+  },
+
   updateAuthenticatedProfile: async (authUserId: string, payload: UpdateUserProfileDto): Promise<UserProfileModel> => {
     await usersService.getAuthenticatedProfile(authUserId);
 
