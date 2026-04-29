@@ -7,7 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppShell } from "@/components/petlink/Layout";
 import { LandingPage } from "@/views/petlink/Landing";
 import { LoginPage, RegisterPage } from "@/views/petlink/AuthPages";
-import { AnnouncementsPage, BookingDetailPage, BookingsPage, DashboardPage, NotificationsPage, PetDetailPage, PetFormPage, PetsPage, ProfilePage, ProviderServiceFormPage, ProviderServicesPage, ServicesPage, ServiceDetailPage, VetsPage } from "@/views/petlink/AppPages";
+import { AnnouncementsPage, BookingDetailPage, BookingsPage, DashboardPage, MatchPage, NotificationsPage, PetDetailPage, PetFormPage, PetsPage, ProfilePage, ProviderServiceFormPage, ProviderServicesPage, ServicesPage, ServiceDetailPage, SubscriptionsPage, VetsPage } from "@/views/petlink/AppPages";
 import NotFound from "./views/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +36,7 @@ const App = () => (
               <Route path="/pets/new" element={<PetFormPage />} />
               <Route path="/pets/:id" element={<PetDetailPage />} />
               <Route path="/services" element={<ServicesPage />} />
+              <Route path="/match" element={<MatchPage />} />
               <Route path="/services/:id" element={<ServiceDetailPage />} />
               <Route path="/bookings" element={<BookingsPage />} />
               <Route path="/bookings/:id" element={<BookingDetailPage />} />
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="/my-services/:id/edit" element={<ProviderServiceFormPage />} />
               <Route path="/my-bookings" element={<BookingsPage provider />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/subscriptions" element={<SubscriptionsPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />

@@ -34,6 +34,66 @@ export type Pet = {
   notes?: string | null;
 };
 
+export type MatchPreference = {
+  id: string;
+  petId: string;
+  preferredBreed: string | null;
+  preferredSex: PetSex | null;
+  minAge: number | null;
+  maxAge: number | null;
+  preferredLocation: string | null;
+  healthRequirements: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type MatchCompatiblePet = {
+  compatibilityScore: number;
+  reasons: string[];
+  pet: Pick<Pet, "id" | "name" | "species" | "breed" | "age" | "weight" | "sex" | "description" | "isSterilized" | "isVaccinated" | "createdAt" | "updatedAt">;
+};
+
+export type SubscriptionPlanCode = "BASIC" | "PREMIUM" | "PROVIDER_PRO";
+export type PaymentProvider = "MERCADOPAGO" | "TRANSBANK";
+export type SubscriptionStatus = "ACTIVE" | "CANCELLED" | "EXPIRED" | "PENDING";
+export type PaymentStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "FAILED";
+
+export type Subscription = {
+  id: string;
+  planCode: SubscriptionPlanCode;
+  status: SubscriptionStatus;
+  startDate: string | null;
+  endDate: string | null;
+  autoRenew: boolean;
+  provider: PaymentProvider | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Payment = {
+  id: string;
+  subscriptionId: string | null;
+  provider: PaymentProvider;
+  providerPaymentId: string | null;
+  providerReference: string | null;
+  status: PaymentStatus;
+  amount: number;
+  currency: string;
+  description: string;
+  paymentMethod: string | null;
+  paidAt: string | null;
+  metadata: unknown;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PaymentCheckout = {
+  payment: Payment;
+  checkoutUrl: string | null;
+  providerPaymentId: string | null;
+  providerReference: string | null;
+};
+
 export type Service = {
   id: string;
   providerId: string;

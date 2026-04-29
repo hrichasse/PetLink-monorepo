@@ -1,5 +1,5 @@
 import { apiRequest, asQuery, setAccessToken, setRefreshToken } from "@/lib/api";
-import type { Announcement, Booking, BookingStatus, Pet, PetSex, Profile, Service, Vet } from "@/lib/petlink-data";
+import type { Announcement, Booking, BookingStatus, MatchCompatiblePet, MatchPreference, Payment, PaymentCheckout, PaymentProvider, Pet, PetSex, Profile, Service, Subscription, SubscriptionPlanCode, Vet } from "@/lib/petlink-data";
 
 const PETLINK_AUTH_URL = "https://nkwqzgbnzzitcnuboyto.supabase.co/auth/v1";
 const PETLINK_AUTH_ANON_KEY = process.env.NEXT_PUBLIC_PETLINK_AUTH_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5rd3F6Z2JuenppdGNudWJveXRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MTg5NTQsImV4cCI6MjA4OTI5NDk1NH0.Vc8s2lDTa8ygKzEi184WU4ZVCvg7L2b46KlK8I3YJOM";
@@ -58,6 +58,19 @@ export const petsApi = {
     body.append("file", file);
     return apiRequest<{ bucket: string; path: string; url: string; contentType: string; size: number; fileName: string }>("pets", `/media/pets/${petId}`, { method: "POST", body });
   },
+  match: {
+    findCompatible: (filters: { petId: string; limit?: number }) =>
+      apiRequest<MatchCompatiblePet[]>("pets", `/match${asQuery(filters)}`),
+    savePreferences: (payload: {
+      petId: string;
+      preferredBreed?: string | null;
+      preferredSex?: "MALE" | "FEMALE" | null;
+      minAge?: number | null;
+      maxAge?: number | null;
+      preferredLocation?: string | null;
+      healthRequirements?: string | null;
+    }) => apiRequest<MatchPreference>("pets", "/match/preferences", { method: "POST", body: JSON.stringify(payload) }),
+  },
 };
 
 export type ServiceInput = Pick<Service, "type" | "title" | "description" | "price" | "location"> & {
@@ -100,4 +113,17 @@ export const marketplaceApi = {
     create: (payload: { channel: "EMAIL" | "PUSH" | "IN_APP" | "SMS"; title: string; message: string; eventType: string; payload?: Record<string, unknown> }) =>
       apiRequest<{ queued: boolean; notificationId?: string; providerMessageId?: string; status: "QUEUED" | "SENT" | "FAILED" }>("marketplace", "/notifications", { method: "POST", body: JSON.stringify(payload) }),
   },
+  subscriptions: {
+    getMyActive: () => apiRequest<Subscription>("marketplace", "/subscriptions/me"),
+    create: (payload: { planCode: SubscriptionPlanCode; provider?: PaymentProvider; autoRenew?: boolean }) =>
+      apiRequest<Subscription>("marketplace", "/subscriptions", { method: "POST", body: JSON.stringify(payload) }),
+    cancel: (id: string) => apiRequest<Subscription>("marketplace", `/subscriptions/${id}/cancel`, { method: "PATCH" }),
+  },
+  payments: {
+    checkout: (payload: { planCode: SubscriptionPlanCode; provider: PaymentProvider; subscriptionId?: string; autoRenew?: boolean }) =>
+      apiRequest<PaymentCheckout>("marketplace", "/payments/checkout", { method: "POST", body: JSON.stringify(payload) }),
+    confirm: (id: string, payload: { status: "APPROVED" | "REJECTED" | "CANCELLED" | "FAILED"; providerPaymentId?: string | null; providerReference?: string | null; paymentMethod?: string | null; metadata?: Record<string, unknown> }) =>
+      apiRequest<Payment>("marketplace", `/payments/${id}/confirm`, { method: "POST", body: JSON.stringify(payload) }),
+    my: () => apiRequest<Payment[]>("marketplace", "/payments/my"),
+  }
 };
