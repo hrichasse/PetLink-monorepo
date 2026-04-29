@@ -73,27 +73,55 @@ const toPetCreateInput = (ownerId: string, payload: CreatePetDto): Prisma.PetCre
 export const petsRepository = {
   create: (ownerId: string, payload: CreatePetDto): Promise<PetModel> => {
     return prisma.pet.create({
-      data: toPetCreateInput(ownerId, payload)
+      data: toPetCreateInput(ownerId, payload),
+      include: {
+        images: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { imageUrl: true, createdAt: true }
+        }
+      }
     });
   },
 
   findManyByOwnerId: (ownerId: string): Promise<PetModel[]> => {
     return prisma.pet.findMany({
       where: { ownerId },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
+      include: {
+        images: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { imageUrl: true, createdAt: true }
+        }
+      }
     });
   },
 
   findById: (id: string): Promise<PetModel | null> => {
     return prisma.pet.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        images: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { imageUrl: true, createdAt: true }
+        }
+      }
     });
   },
 
   updateById: (id: string, payload: UpdatePetDto): Promise<PetModel> => {
     return prisma.pet.update({
       where: { id },
-      data: toPetUpdateInput(payload)
+      data: toPetUpdateInput(payload),
+      include: {
+        images: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { imageUrl: true, createdAt: true }
+        }
+      }
     });
   },
 

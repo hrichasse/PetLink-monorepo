@@ -1,6 +1,7 @@
 import type { CreatePetDto, UpdatePetDto } from "@/modules/pets/dtos";
 import { petsRepository } from "@/modules/pets/repositories";
 import type { PetModel } from "@/modules/pets/types";
+import { Prisma } from "@prisma/client";
 import { HTTP_STATUS } from "@petlink/shared";
 import { AppError } from "@petlink/shared";
 import { ERROR_CODES } from "@petlink/shared";
@@ -47,6 +48,17 @@ export const petsService = {
 
   deletePetForUser: async (authUserId: string, petId: string): Promise<void> => {
     await petsService.getPetByIdForUser(authUserId, petId);
-    await petsRepository.deleteById(petId);
+    try {
+      await petsRepository.deleteById(petId);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+        throw new AppError("Cannot delete pet with related bookings. Cancel those bookings first.", {
+          statusCode: HTTP_STATUS.CONFLICT,
+          code: ERROR_CODES.CONFLICT
+        });
+      }
+
+      throw error;
+    }
   }
 };

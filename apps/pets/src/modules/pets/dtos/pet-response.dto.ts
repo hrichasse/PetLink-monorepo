@@ -11,6 +11,7 @@ export type PetResponseDto = {
   age: number;
   weight: number;
   sex: PetSex;
+  imageUrl: string | null;
   description: string | null;
   isSterilized: boolean;
   isVaccinated: boolean;
@@ -28,6 +29,7 @@ export const toPetResponseDto = (pet: PetModel): PetResponseDto => {
     age: pet.age,
     weight: Number(pet.weight),
     sex: pet.sex,
+    imageUrl: pet.images?.[0]?.imageUrl ?? null,
     description: pet.description,
     isSterilized: pet.isSterilized,
     isVaccinated: pet.isVaccinated,

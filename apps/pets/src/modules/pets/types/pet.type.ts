@@ -1,3 +1,5 @@
-import type { Pet } from "@prisma/client";
+import type { Pet, PetImage } from "@prisma/client";
 
-export type PetModel = Pet;
+export type PetModel = Pet & {
+	images?: Pick<PetImage, "imageUrl" | "createdAt">[];
+};
