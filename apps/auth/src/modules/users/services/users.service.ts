@@ -44,6 +44,14 @@ export const usersService = {
     return usersRepository.updateByAuthUserId(authUserId, payload);
   },
 
+  upsertAuthenticatedProfile: async (
+    authUserId: string,
+    payload: UpdateUserProfileDto,
+    fallback: import("@/modules/users/dtos").CreateUserProfileDto
+  ): Promise<UserProfileModel> => {
+    return usersRepository.upsertByAuthUserId(authUserId, payload, fallback);
+  },
+
   getProfileById: async (id: string): Promise<UserProfileModel> => {
     const profile = await usersRepository.findById(id);
 

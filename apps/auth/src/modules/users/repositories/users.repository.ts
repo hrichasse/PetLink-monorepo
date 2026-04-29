@@ -25,6 +25,14 @@ const toUserProfileUpdateInput = (payload: UpdateUserProfileDto): Prisma.UserPro
   return data;
 };
 
+type UpsertFallback = {
+  fullName: string;
+  phone?: string | null;
+  city?: string | null;
+  location?: string | null;
+  role?: import("@prisma/client").UserRole;
+};
+
 export const usersRepository = {
   create: (userId: string, data: CreateUserProfileDto): Promise<UserProfileModel> =>
     prisma.userProfile.create({
@@ -54,6 +62,21 @@ export const usersRepository = {
     return prisma.userProfile.update({
       where: { userId },
       data: toUserProfileUpdateInput(data)
+    });
+  },
+
+  upsertByAuthUserId: (userId: string, data: UpdateUserProfileDto, fallback: UpsertFallback): Promise<UserProfileModel> => {
+    return prisma.userProfile.upsert({
+      where: { userId },
+      create: {
+        userId,
+        fullName: data.fullName ?? fallback.fullName,
+        phone: data.phone ?? fallback.phone ?? null,
+        city: data.city ?? fallback.city ?? null,
+        location: data.location ?? fallback.location ?? null,
+        role: fallback.role ?? "OWNER"
+      },
+      update: toUserProfileUpdateInput(data)
     });
   }
 };

@@ -47,9 +47,9 @@ export const updateMeController = async (request: NextRequest): Promise<NextResp
   };
   if (isUserRole(authUser.role)) fallbackProfile.role = authUser.role;
 
-  await usersService.ensureAuthenticatedProfile(authUser.userId, fallbackProfile);
-
-  const profile = await usersService.updateAuthenticatedProfile(authUser.userId, validationResult.data);
+  // Single atomic upsert: creates the profile if it doesn't exist yet,
+  // or updates it if it does — eliminating race conditions.
+  const profile = await usersService.upsertAuthenticatedProfile(authUser.userId, validationResult.data, fallbackProfile);
 
   return ok("User profile updated successfully.", toUserProfileResponseDto(profile));
 };
