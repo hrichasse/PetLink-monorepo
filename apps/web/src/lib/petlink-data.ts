@@ -10,6 +10,7 @@ export type Profile = {
   avatarUrl: string | null;
   role: Role;
   city: string | null;
+  location: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -65,6 +66,7 @@ export type Booking = {
   createdAt: string;
   updatedAt: string;
   serviceTitle?: string;
+  serviceLocation?: string;
   petName?: string;
   date?: string;
   total?: number;

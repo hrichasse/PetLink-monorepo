@@ -1,3 +1,8 @@
-import type { Booking } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 
-export type BookingModel = Booking;
+export type BookingModel = Prisma.BookingGetPayload<{
+	include: {
+		service: true;
+		pet: true;
+	};
+}>;

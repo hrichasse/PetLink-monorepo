@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { ApiError, clearAccessToken, getAccessToken } from "@/lib/api";
+import { ApiError, clearAuthTokens, getAccessToken, refreshAccessToken } from "@/lib/api";
 import { authApi } from "@/lib/petlink-api";
 import type { Profile, Role } from "@/lib/petlink-data";
 import { toast } from "sonner";
@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   async function signOutSilently() {
-    clearAccessToken();
+    clearAuthTokens();
     setSession(null);
     setProfile(null);
     setRoleState("OWNER");
@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function provisionAndLoad(currentSession: PetLinkSession, options?: { silent?: boolean }) {
     const fullName = String(currentSession.user.user_metadata?.full_name ?? currentSession.user.email?.split("@")[0] ?? "Usuario PetLink");
     try {
-      await authApi.provisionUser({ fullName, phone: null, city: null });
+      await authApi.provisionUser({ fullName, phone: null, city: null, location: null });
     } catch (error) {
       if (!options?.silent) throw error;
     }
@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const me = await refreshProfile({ silent: options?.silent });
     if (!me) {
       if (options?.silent) return;
-      clearAccessToken();
+      clearAuthTokens();
       setSession(null);
       setProfile(null);
       throw new Error("No se pudo validar tu perfil");
@@ -90,7 +90,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     void (async () => {
-      const token = await getAccessToken();
+      let token = await getAccessToken();
+      if (!token) {
+        token = await refreshAccessToken();
+      }
+
       if (!token) {
         setLoading(false);
         return;
@@ -107,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Only clear token when it is truly unauthorized/invalid.
         if (status === 401 || status === 403) {
-          clearAccessToken();
+          clearAuthTokens();
           setSession(null);
           setProfile(null);
           setRoleState("OWNER");
@@ -151,7 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       toast.error("Google no está conectado en el auth real de PetLink");
     },
     signOut: async () => {
-      clearAccessToken();
+      clearAuthTokens();
       setSession(null);
       setProfile(null);
       toast.success("Sesión cerrada");

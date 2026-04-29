@@ -20,6 +20,7 @@ export const updateUserProfileSchema = z
   .object({
     fullName: z.string().trim().min(2).max(120).optional(),
     phone: optionalNullableTrimmedString(30),
-    city: optionalNullableTrimmedString(80)
+    city: optionalNullableTrimmedString(80),
+    location: optionalNullableTrimmedString(255)
   })
   .strict();

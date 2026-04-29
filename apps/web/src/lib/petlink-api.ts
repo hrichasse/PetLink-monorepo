@@ -1,4 +1,4 @@
-import { apiRequest, asQuery, setAccessToken } from "@/lib/api";
+import { apiRequest, asQuery, setAccessToken, setRefreshToken } from "@/lib/api";
 import type { Announcement, Booking, BookingStatus, Pet, PetSex, Profile, Service, Vet } from "@/lib/petlink-data";
 
 const PETLINK_AUTH_URL = "https://nkwqzgbnzzitcnuboyto.supabase.co/auth/v1";
@@ -20,6 +20,7 @@ async function authSessionRequest(path: string, payload: Record<string, unknown>
   const data = await response.json().catch(() => null);
   if (!response.ok || !data?.access_token) throw new Error(data?.message ?? data?.error_description ?? "No se pudo autenticar en PetLink");
   setAccessToken(data.access_token);
+  if (data.refresh_token) setRefreshToken(data.refresh_token);
   return data as PetLinkAuthSession;
 }
 
@@ -27,10 +28,10 @@ export const authApi = {
   login: (payload: { email: string; password: string }) => authSessionRequest("/token?grant_type=password", payload),
   signup: (payload: { email: string; password: string; fullName: string; role: "OWNER" | "PROVIDER" }) =>
     authSessionRequest("/signup", { email: payload.email, password: payload.password, data: { full_name: payload.fullName, role: payload.role } }),
-  provisionUser: (payload: { fullName: string; phone?: string | null; city?: string | null }) =>
+  provisionUser: (payload: { fullName: string; phone?: string | null; city?: string | null; location?: string | null }) =>
     apiRequest<Profile>("auth", "/users", { method: "POST", body: JSON.stringify(payload) }),
   getMe: () => apiRequest<Profile>("auth", "/users/me"),
-  updateMe: (payload: Partial<Pick<Profile, "fullName" | "phone" | "city">>) =>
+  updateMe: (payload: Partial<Pick<Profile, "fullName" | "phone" | "city" | "location">>) =>
     apiRequest<Profile>("auth", "/users/me", { method: "PATCH", body: JSON.stringify(payload) }),
 };
 

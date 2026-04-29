@@ -1,4 +1,4 @@
-import type { Booking, BookingStatus, Prisma, Service } from "@prisma/client";
+import type { BookingStatus, Prisma, Service } from "@prisma/client";
 
 import { prisma } from "@petlink/database";
 import type { CreateBookingDto, ListBookingsQueryDto } from "@/modules/bookings/dtos";
@@ -56,6 +56,16 @@ const toWhereForUser = (authUserId: string, query: ListBookingsQueryDto): Prisma
 };
 
 export const bookingsRepository = {
+  findById: (id: string): Promise<BookingModel | null> => {
+    return prisma.booking.findUnique({
+      where: { id },
+      include: {
+        service: true,
+        pet: true
+      }
+    });
+  },
+
   findServiceById: (id: string): Promise<Service | null> => {
     return prisma.service.findUnique({
       where: { id }
@@ -64,20 +74,22 @@ export const bookingsRepository = {
 
   create: (authUserId: string, providerId: string, payload: CreateBookingDto): Promise<BookingModel> => {
     return prisma.booking.create({
-      data: toCreateInput(authUserId, providerId, payload)
+      data: toCreateInput(authUserId, providerId, payload),
+      include: {
+        service: true,
+        pet: true
+      }
     });
   },
 
   findManyForUser: (authUserId: string, query: ListBookingsQueryDto): Promise<BookingModel[]> => {
     return prisma.booking.findMany({
       where: toWhereForUser(authUserId, query),
+      include: {
+        service: true,
+        pet: true
+      },
       orderBy: { createdAt: "desc" }
-    });
-  },
-
-  findById: (id: string): Promise<Booking | null> => {
-    return prisma.booking.findUnique({
-      where: { id }
     });
   },
 
@@ -92,7 +104,11 @@ export const bookingsRepository = {
 
     return prisma.booking.update({
       where: { id },
-      data
+      data,
+      include: {
+        service: true,
+        pet: true
+      }
     });
   }
 };

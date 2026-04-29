@@ -41,12 +41,13 @@ export const createUserProfileController = async (request: NextRequest): Promise
     });
   }
 
-  const { fullName, phone, city } = validationResult.data;
+  const { fullName, phone, city, location } = validationResult.data;
 
   // Build DTO without undefined values (exactOptionalPropertyTypes constraint)
   const payload: import("@/modules/users/dtos").CreateUserProfileDto = { fullName };
   if (phone !== undefined) payload.phone = phone;
   if (city !== undefined) payload.city = city;
+  if (location !== undefined) payload.location = location;
 
   const { profile, isNew } = await usersService.createOrGetProfile(
     authUser.userId,

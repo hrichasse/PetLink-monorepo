@@ -41,6 +41,10 @@ const configuredBaseUrls: Record<ApiArea, string | undefined> = {
 };
 
 const TOKEN_STORAGE_KEY = "petlink_access_token";
+const REFRESH_TOKEN_STORAGE_KEY = "petlink_refresh_token";
+
+const PETLINK_AUTH_URL = process.env.NEXT_PUBLIC_PETLINK_AUTH_URL || "https://nkwqzgbnzzitcnuboyto.supabase.co/auth/v1";
+const PETLINK_AUTH_ANON_KEY = process.env.NEXT_PUBLIC_PETLINK_AUTH_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5rd3F6Z2JuenppdGNudWJveXRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MTg5NTQsImV4cCI6MjA4OTI5NDk1NH0.Vc8s2lDTa8ygKzEi184WU4ZVCvg7L2b46KlK8I3YJOM";
 
 function getBaseUrl(area: ApiArea) {
   const configured = configuredBaseUrls[area];
@@ -53,12 +57,50 @@ export async function getAccessToken() {
   return localStorage.getItem(TOKEN_STORAGE_KEY);
 }
 
+export async function getRefreshToken() {
+  return localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+}
+
 export function setAccessToken(token: string) {
   localStorage.setItem(TOKEN_STORAGE_KEY, token);
 }
 
+export function setRefreshToken(token: string) {
+  localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, token);
+}
+
 export function clearAccessToken() {
   localStorage.removeItem(TOKEN_STORAGE_KEY);
+}
+
+export function clearRefreshToken() {
+  localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+}
+
+export function clearAuthTokens() {
+  clearAccessToken();
+  clearRefreshToken();
+}
+
+export async function refreshAccessToken() {
+  const refreshToken = await getRefreshToken();
+  if (!refreshToken || !PETLINK_AUTH_ANON_KEY) return null;
+
+  const response = await fetch(`${PETLINK_AUTH_URL}/token?grant_type=refresh_token`, {
+    method: "POST",
+    headers: { apikey: PETLINK_AUTH_ANON_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+
+  const data = await response.json().catch(() => null) as { access_token?: string; refresh_token?: string } | null;
+  if (!response.ok || !data?.access_token) {
+    clearAuthTokens();
+    return null;
+  }
+
+  setAccessToken(data.access_token);
+  if (data.refresh_token) setRefreshToken(data.refresh_token);
+  return data.access_token;
 }
 
 export async function apiRequest<T>(area: ApiArea, path: string, init: RequestInit = {}): Promise<T> {
@@ -69,7 +111,15 @@ export async function apiRequest<T>(area: ApiArea, path: string, init: RequestIn
   if (!headers.has("Content-Type") && !(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const response = await fetch(`${baseUrl}${path}`, { ...init, headers });
+  let response = await fetch(`${baseUrl}${path}`, { ...init, headers });
+  if (response.status === 401) {
+    const nextAccessToken = await refreshAccessToken();
+    if (nextAccessToken) {
+      headers.set("Authorization", `Bearer ${nextAccessToken}`);
+      response = await fetch(`${baseUrl}${path}`, { ...init, headers });
+    }
+  }
+
   const payload = (await response.json().catch(() => null)) as ApiEnvelope<T> | null;
 
   if (!response.ok || !payload) {

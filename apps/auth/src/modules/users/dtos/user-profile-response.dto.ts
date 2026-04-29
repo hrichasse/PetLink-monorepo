@@ -10,6 +10,7 @@ export type UserProfileResponseDto = {
   avatarUrl: string | null;
   role: UserRole;
   city: string | null;
+  location: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -23,6 +24,7 @@ export const toUserProfileResponseDto = (profile: UserProfileModel): UserProfile
     avatarUrl: profile.avatarUrl,
     role: profile.role,
     city: profile.city,
+    location: profile.location,
     createdAt: profile.createdAt.toISOString(),
     updatedAt: profile.updatedAt.toISOString()
   };
@@ -34,6 +36,7 @@ export type PublicUserProfileResponseDto = {
   avatarUrl: string | null;
   role: UserRole;
   city: string | null;
+  location: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -45,6 +48,7 @@ export const toPublicUserProfileResponseDto = (profile: UserProfileModel): Publi
     avatarUrl: profile.avatarUrl,
     role: profile.role,
     city: profile.city,
+    location: profile.location,
     createdAt: profile.createdAt.toISOString(),
     updatedAt: profile.updatedAt.toISOString()
   };
