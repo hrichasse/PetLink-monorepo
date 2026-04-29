@@ -86,7 +86,9 @@ export const marketplaceApi = {
     list: (filters: { city?: string; specialty?: string; isPartner?: boolean; isActive?: boolean } = {}) =>
       apiRequest<Vet[]>("marketplace", `/veterinaries${asQuery(filters)}`),
     get: (id: string) => apiRequest<Vet>("marketplace", `/veterinaries/${id}`),
-  },
+      create: (payload: { name: string; address: string; city: string; phone?: string | null; description?: string | null; specialties?: string[]; isActive?: boolean }) =>
+        apiRequest<Vet>("marketplace", "/veterinaries", { method: "POST", body: JSON.stringify(payload) }),
+    },
   announcements: {
     list: (filters: { type?: string; city?: string; authorId?: string; isActive?: boolean } = {}) =>
       apiRequest<Announcement[]>("pets", `/announcements${asQuery(filters)}`),

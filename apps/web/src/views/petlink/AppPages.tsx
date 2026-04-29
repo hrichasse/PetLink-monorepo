@@ -75,10 +75,183 @@ export function ServiceDetailPage() {
 export function BookingsPage({ provider = false }: { provider?: boolean }) { const queryClient = useQueryClient(); const handleError = useApiError(); const { data = [], isLoading, error } = useQuery({ queryKey: ["bookings", provider ? "provider" : "owner"], queryFn: () => marketplaceApi.bookings.list(provider ? "provider" : "owner") }); const mutation = useMutation({ mutationFn: ({ id, status }: { id: string; status: BookingStatus | Booking["status"] }) => marketplaceApi.bookings.updateStatus(id, { status: String(status).toUpperCase() as Uppercase<BookingStatus> }), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["bookings"] }); toast.success("Estado actualizado"); }, onError: handleError }); const cancelMutation = useMutation({ mutationFn: (id: string) => marketplaceApi.bookings.cancel(id), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["bookings"] }); toast.success("Reserva cancelada correctamente"); }, onError: handleError }); return <Page title={provider ? "Reservas entrantes" : "Mis reservas"}>{isLoading ? <SkeletonGrid /> : error ? <EmptyState title="No se pudieron cargar las reservas" description={error instanceof Error ? error.message : "Intenta nuevamente."} /> : data.length ? <div className="space-y-4">{data.map((booking) => <div key={booking.id} className="space-y-3"><BookingCard booking={booking} onStatus={provider && normalizeBookingStatus(booking.status) === "pending" ? (status) => mutation.mutate({ id: booking.id, status }) : undefined} onCancel={!provider && normalizeBookingStatus(booking.status) !== "cancelled" && normalizeBookingStatus(booking.status) !== "completed" ? () => { if (!window.confirm("¿Seguro que quieres cancelar esta reserva?")) return; cancelMutation.mutate(booking.id); } : undefined} />{booking.serviceLocation ? <LocationMap title="Ubicación de la reserva" address={booking.serviceLocation} /> : null}</div>)}</div> : <EmptyState title="Sin reservas" description="Cuando reserves un servicio, aparecerá aquí." />}</Page>; }
 
 export function AnnouncementsPage() { const queryClient = useQueryClient(); const [showForm, setShowForm] = useState(false); const [type, setType] = useState("LOST_PET"); const [title, setTitle] = useState(""); const [description, setDescription] = useState(""); const [city, setCity] = useState(""); const [location, setLocation] = useState(""); const [lat, setLat] = useState<number | null>(null); const [lng, setLng] = useState<number | null>(null); const { data = [], isLoading, error } = useQuery({ queryKey: ["announcements"], queryFn: () => marketplaceApi.announcements.list({ isActive: true }) }); const createMutation = useMutation({ mutationFn: () => marketplaceApi.announcements.create({ type, title: title.trim(), description: description.trim(), city: city.trim() || undefined, location: location.trim() || undefined, lat: lat ?? undefined, lng: lng ?? undefined }), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["announcements"] }); toast.success("Anuncio publicado correctamente"); setShowForm(false); setType("LOST_PET"); setTitle(""); setDescription(""); setCity(""); setLocation(""); setLat(null); setLng(null); }, onError: (createError) => { toast.error(createError instanceof Error ? createError.message : "No se pudo publicar el anuncio"); } }); return <Page title="Anuncios" action={<Button variant="hero" onClick={() => setShowForm((prev) => !prev)}><Plus />{showForm ? "Cerrar" : "Publicar"}</Button>}>{showForm && <section className="mb-5 rounded-card border bg-card p-5 shadow-soft"><h2 className="text-xl font-extrabold">Nuevo anuncio</h2><div className="mt-4 grid gap-3 md:grid-cols-2"><label className="block text-sm font-bold">Tipo<select className="input-shell mt-2" value={type} onChange={(event) => setType(event.target.value)}><option value="LOST_PET">Mascota perdida</option><option value="FOUND_PET">Mascota encontrada</option><option value="ADOPTION">Adopción</option><option value="ADVERTISING">Publicidad</option><option value="GENERAL">General</option></select></label><Input label="Título" props={{ name: "announcement-title", onBlur: () => undefined, onChange: (event) => setTitle(event.target.value), ref: () => undefined }} error={title.trim().length > 0 && title.trim().length < 3 ? "Mínimo 3 caracteres" : undefined} /></div><label className="mt-3 block text-sm font-bold">Descripción<textarea className="input-shell mt-2 min-h-28" value={description} onChange={(event) => setDescription(event.target.value)} /></label><div className="mt-3 grid gap-3 md:grid-cols-2"><label className="block text-sm font-bold">Ciudad<input className="input-shell mt-2" value={city} onChange={(event) => setCity(event.target.value)} /></label><AddressAutocompleteInput label="Ubicación" value={location} onChange={setLocation} onSelect={(selection) => { if (selection.city) setCity(selection.city); setLat(selection.lat ?? null); setLng(selection.lng ?? null); }} /></div><LocationMap className="mt-4" title="Vista previa de ubicación" address={location || undefined} city={city || undefined} lat={lat ?? undefined} lng={lng ?? undefined} /><div className="mt-4 flex justify-end"><Button disabled={createMutation.isPending || title.trim().length < 3 || description.trim().length < 10} onClick={() => createMutation.mutate()}>{createMutation.isPending ? "Publicando..." : "Publicar anuncio"}</Button></div></section>}{isLoading ? <SkeletonGrid /> : error ? <EmptyState title="No se pudieron cargar los anuncios" description={error instanceof Error ? error.message : "Intenta nuevamente."} /> : data.length ? <div className="grid gap-5 md:grid-cols-2">{data.map((item) => <div key={item.id} className="space-y-3"><AnnouncementCard announcement={item} /><LocationMap title="Ubicación del anuncio" address={item.location ?? undefined} city={item.city ?? undefined} lat={item.lat ?? undefined} lng={item.lng ?? undefined} /></div>)}</div> : <EmptyState title="Sin anuncios" description="No hay anuncios activos por ahora." />}</Page>; }
-export function VetsPage() { const { data = [], isLoading, error } = useQuery({ queryKey: ["vets"], queryFn: () => marketplaceApi.vets.list({ isActive: true }) }); return <Page title="Directorio de veterinarias">{isLoading ? <SkeletonGrid /> : error ? <EmptyState title="No se pudieron cargar las veterinarias" description={error instanceof Error ? error.message : "Intenta nuevamente."} /> : data.length ? <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{data.map((vet) => <div key={vet.id} className="space-y-3"><VetCard vet={vet} /><LocationMap title="Cómo llegar" address={vet.address} city={vet.city} lat={vet.lat ?? undefined} lng={vet.lng ?? undefined} /></div>)}</div> : <EmptyState title="Sin veterinarias" description="No hay veterinarias activas registradas." />}</Page>; }
+export function VetsPage() {
+  const queryClient = useQueryClient();
+  const handleError = useApiError();
+  const [cityFilter, setCityFilter] = useState("");
+  const [specialtyFilter, setSpecialtyFilter] = useState("");
+  const [showForm, setShowForm] = useState(false);
+
+  const SPECIALTY_LABELS: Record<string, string> = {
+    GENERAL: "General", SURGERY: "Cirugía", DERMATOLOGY: "Dermatología",
+    CARDIOLOGY: "Cardiología", OPHTHALMOLOGY: "Oftalmología", NEUROLOGY: "Neurología",
+    ONCOLOGY: "Oncología", DENTISTRY: "Odontología", NUTRITION: "Nutrición",
+    EXOTIC_PETS: "Animales exóticos", EMERGENCY: "Urgencias", OTHER: "Otros",
+  };
+  const specialtyOptions = Object.entries(SPECIALTY_LABELS);
+
+  const vetFormSchema = z.object({
+    name: z.string().min(2, "Nombre requerido").max(200),
+    address: z.string().min(3, "Dirección requerida"),
+    city: z.string().min(2, "Ciudad requerida").max(100),
+    phone: z.string().max(30).optional(),
+    description: z.string().max(2000).optional(),
+    specialties: z.array(z.string()),
+  });
+  type VetCreateValues = z.infer<typeof vetFormSchema>;
+
+  const form = useForm<VetCreateValues>({
+    resolver: zodResolver(vetFormSchema),
+    defaultValues: { name: "", address: "", city: "", phone: "", description: "", specialties: [] },
+  });
+  const currentAddress = form.watch("address");
+  const selectedSpecialties = form.watch("specialties");
+
+  const { data = [], isLoading, error } = useQuery({
+    queryKey: ["vets", cityFilter, specialtyFilter],
+    queryFn: () => marketplaceApi.vets.list({
+      isActive: true,
+      ...(cityFilter ? { city: cityFilter } : {}),
+      ...(specialtyFilter ? { specialty: specialtyFilter } : {}),
+    }),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (values: VetCreateValues) =>
+      marketplaceApi.vets.create({
+        name: values.name,
+        address: values.address,
+        city: values.city,
+        phone: values.phone || null,
+        description: values.description || null,
+        ...(values.specialties.length > 0 ? { specialties: values.specialties } : {}),
+        isActive: true,
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["vets"] });
+      toast.success("Veterinaria agregada correctamente");
+      setShowForm(false);
+      form.reset();
+    },
+    onError: handleError,
+  });
+
+  return (
+    <Page
+      title="Veterinarias"
+      action={
+        <Button variant="hero" onClick={() => setShowForm((s) => !s)}>
+          <Plus />{showForm ? "Cancelar" : "Nueva veterinaria"}
+        </Button>
+      }
+    >
+      {showForm && (
+        <section className="mb-6 rounded-card border bg-card p-6 shadow-soft">
+          <h2 className="mb-4 text-lg font-black">Agregar veterinaria</h2>
+          <form
+            className="grid gap-4 md:grid-cols-2"
+            onSubmit={form.handleSubmit((values) => createMutation.mutate(values))}
+          >
+            <Input label="Nombre de la clínica" error={form.formState.errors.name?.message} props={form.register("name")} />
+            <Input label="Teléfono" error={form.formState.errors.phone?.message} props={form.register("phone")} />
+            <AddressAutocompleteInput
+              label="Dirección"
+              value={currentAddress}
+              onChange={(val) => form.setValue("address", val, { shouldDirty: true, shouldValidate: true })}
+            />
+            <Input label="Ciudad / Comuna" error={form.formState.errors.city?.message} props={form.register("city")} />
+            <label className="md:col-span-2 block text-sm font-bold">
+              Descripción
+              <textarea className="input-shell mt-2 min-h-24" {...form.register("description")} />
+            </label>
+            <div className="md:col-span-2">
+              <p className="mb-2 text-sm font-bold">Especialidades</p>
+              <div className="flex flex-wrap gap-2">
+                {specialtyOptions.map(([key, label]) => (
+                  <label
+                    key={key}
+                    className="flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition-colors hover:bg-accent has-[:checked]:border-primary has-[:checked]:bg-primary-soft has-[:checked]:text-primary"
+                  >
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      value={key}
+                      checked={selectedSpecialties.includes(key)}
+                      onChange={(e) => {
+                        const cur = form.getValues("specialties");
+                        form.setValue("specialties", e.target.checked ? [...cur, key] : cur.filter((s) => s !== key));
+                      }}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <LocationMap className="md:col-span-2" title="Vista previa de ubicación" address={currentAddress} city={form.watch("city") || undefined} />
+            <Button className="md:col-span-2" variant="hero" disabled={createMutation.isPending}>
+              {createMutation.isPending ? "Guardando…" : "Guardar veterinaria"}
+            </Button>
+          </form>
+        </section>
+      )}
+
+      <div className="mb-5 flex flex-wrap gap-3">
+        <input
+          className="input-shell w-44"
+          placeholder="Filtrar por ciudad"
+          value={cityFilter}
+          onChange={(e) => setCityFilter(e.target.value)}
+          aria-label="Filtrar veterinarias por ciudad"
+        />
+        <select
+          className="input-shell w-56"
+          value={specialtyFilter}
+          onChange={(e) => setSpecialtyFilter(e.target.value)}
+          aria-label="Filtrar por especialidad"
+        >
+          <option value="">Todas las especialidades</option>
+          {specialtyOptions.map(([key, label]) => (
+            <option key={key} value={key}>{label}</option>
+          ))}
+        </select>
+        {(cityFilter || specialtyFilter) && (
+          <button
+            className="text-xs font-bold text-muted-foreground underline"
+            onClick={() => { setCityFilter(""); setSpecialtyFilter(""); }}
+          >
+            Limpiar filtros
+          </button>
+        )}
+      </div>
+
+      {isLoading ? (
+        <SkeletonGrid />
+      ) : error ? (
+        <EmptyState title="No se pudieron cargar las veterinarias" description={error instanceof Error ? error.message : "Intenta nuevamente."} />
+      ) : data.length ? (
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {data.map((vet) => (
+            <div key={vet.id} className="space-y-3">
+              <VetCard vet={vet} />
+              {(vet.address || vet.city) && (
+                <LocationMap title="Cómo llegar" address={vet.address} city={vet.city} lat={vet.lat ?? undefined} lng={vet.lng ?? undefined} />
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          title="Sin veterinarias"
+          description={cityFilter || specialtyFilter ? "No hay veterinarias con esos filtros." : "No hay veterinarias registradas. ¡Agrega la primera!"}
+        />
+      )}
+    </Page>
+  );
+}
+
 export function ProviderServicesPage() { const { profile } = useAuth(); const { data = [], isLoading, error } = useQuery({ queryKey: ["provider-services", profile?.userId], queryFn: () => marketplaceApi.services.list({ providerId: profile?.userId }), enabled: Boolean(profile?.userId) }); return <Page title="Mis servicios" action={<Button asChild variant="hero"><Link to="/my-services/new"><Plus />Nuevo</Link></Button>}>{isLoading ? <SkeletonGrid /> : error ? <EmptyState title="No se pudieron cargar tus servicios" description={error instanceof Error ? error.message : "Intenta nuevamente."} /> : data.length ? <div className="grid gap-5 md:grid-cols-3">{data.map((service) => <Link key={service.id} to={`/my-services/${service.id}/edit`}><ServiceCard service={service} /></Link>)}</div> : <EmptyState title="Aún no tienes servicios" description="Crea tu primer servicio para recibir reservas." />}</Page>; }
 export function ProviderServiceFormPage() { const { id } = useParams(); const navigate = useNavigate(); const queryClient = useQueryClient(); const handleError = useApiError(); const editing = Boolean(id); const { data: service } = useQuery({ queryKey: ["services", id], queryFn: () => marketplaceApi.services.get(id ?? ""), enabled: editing }); const form = useForm<ServiceValues>({ resolver: zodResolver(serviceSchema), values: service ? { type: service.type, title: service.title, description: service.description, price: service.price, location: service.location, availabilityNotes: service.availabilityNotes ?? "", isActive: service.isActive } : { type: "", title: "", description: "", price: 1, location: "", availabilityNotes: "", isActive: true } }); const currentLocation = form.watch("location"); const mutation = useMutation({ mutationFn: (values: ServiceValues) => editing ? marketplaceApi.services.update(id ?? "", { type: values.type, title: values.title, description: values.description, price: values.price, location: values.location, availabilityNotes: values.availabilityNotes || null, isActive: values.isActive }) : marketplaceApi.services.create({ type: values.type, title: values.title, description: values.description, price: values.price, location: values.location, availabilityNotes: values.availabilityNotes || null, isActive: values.isActive }), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["provider-services"] }); toast.success("Servicio guardado correctamente"); navigate("/my-services"); }, onError: handleError }); return <Page title={editing ? "Editar servicio" : "Nuevo servicio"}><form className="grid gap-5 rounded-card border bg-card p-6 shadow-soft md:grid-cols-2" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}><Input label="Tipo" error={form.formState.errors.type?.message} props={form.register("type")} /><Input label="Título" error={form.formState.errors.title?.message} props={form.register("title")} /><Input label="Precio" type="number" error={form.formState.errors.price?.message} props={form.register("price")} /><AddressAutocompleteInput label="Ubicación" value={currentLocation} onChange={(value) => form.setValue("location", value, { shouldDirty: true, shouldValidate: true })} /><LocationMap className="md:col-span-2" title="Vista previa de ubicación" address={currentLocation} /><label className="md:col-span-2 block text-sm font-bold">Descripción<textarea className="input-shell mt-2 min-h-28" {...form.register("description")} /></label><label className="md:col-span-2 block text-sm font-bold">Disponibilidad<textarea className="input-shell mt-2" {...form.register("availabilityNotes")} /></label><label className="font-bold"><input type="checkbox" className="mr-2" {...form.register("isActive")} />Activo</label><Button className="md:col-span-2" variant="hero" disabled={mutation.isPending}>{mutation.isPending ? "Guardando…" : "Guardar servicio"}</Button></form></Page>; }
-export function ProfilePage() { const { profile, refreshProfile } = useAuth(); const handleError = useApiError(); const form = useForm<ProfileValues>({ resolver: zodResolver(profileSchema), values: { fullName: profile?.fullName ?? "", phone: profile?.phone ?? "", city: profile?.city ?? "", location: profile?.location ?? "" } }); const currentLocation = form.watch("location"); const mutation = useMutation({ mutationFn: (values: ProfileValues) => authApi.updateMe({ fullName: values.fullName, phone: values.phone || null, city: values.city || null, location: values.location || null }), onSuccess: async () => { await refreshProfile(); toast.success("Perfil actualizado"); }, onError: handleError }); return <Page title="Perfil"><section className="rounded-card border bg-card p-6 shadow-soft"><div className="flex items-center gap-4"><div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-2xl">👤</div><div><h2 className="text-xl font-black">{profile?.fullName ?? "Usuario PetLink"}</h2><p className="text-muted-foreground">{profile?.role === "PROVIDER" ? "Proveedor" : "Dueño"}</p></div></div><form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}><Input label="Nombre" error={form.formState.errors.fullName?.message} props={form.register("fullName")} /><Input label="Teléfono" error={form.formState.errors.phone?.message} props={form.register("phone")} /><Input label="Ciudad" error={form.formState.errors.city?.message} props={form.register("city")} /><AddressAutocompleteInput label="Dirección" value={currentLocation} onChange={(value) => form.setValue("location", value, { shouldDirty: true, shouldValidate: true })} /><LocationMap className="md:col-span-2" title="Ubicación de perfil" address={currentLocation} city={form.watch("city") || undefined} /><Button className="md:col-span-2" variant="hero" disabled={mutation.isPending}>{mutation.isPending ? "Guardando…" : "Guardar perfil"}</Button></form></section></Page>; }
+export function ProfilePage() { const { profile, refreshProfile } = useAuth(); const handleError = useApiError(); const form = useForm<ProfileValues>({ resolver: zodResolver(profileSchema), values: { fullName: profile?.fullName ?? "", phone: profile?.phone ?? "", city: profile?.city ?? "", location: profile?.location ?? "" } }); const currentLocation = form.watch("location"); const mutation = useMutation({ mutationFn: (values: ProfileValues) => authApi.updateMe({ fullName: values.fullName, phone: values.phone || null, city: values.city || null, location: values.location || null }), onSuccess: async () => { await refreshProfile(); toast.success("Perfil actualizado"); }, onError: handleError }); return <Page title="Perfil"><section className="rounded-card border bg-card p-6 shadow-soft"><div className="flex items-center gap-4"><div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-2xl">👤</div><div><h2 className="text-xl font-black">{profile?.fullName ?? "Usuario PetLink"}</h2><p className="text-muted-foreground">{profile?.role === "PROVIDER" ? "Proveedor" : "Dueño"}</p></div></div><form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}><Input label="Nombre" error={form.formState.errors.fullName?.message} props={form.register("fullName")} /><Input label="Teléfono" error={form.formState.errors.phone?.message} props={form.register("phone")} /><Input label="Ciudad" error={form.formState.errors.city?.message} props={form.register("city")} /><AddressAutocompleteInput label="Dirección" value={currentLocation} onChange={(value) => form.setValue("location", value, { shouldDirty: true, shouldValidate: true })} /><LocationMap className="md:col-span-2" title="Ubicación de perfil" address={currentLocation} city={form.watch("city") || undefined} /><Button className="md:col-span-2" variant="hero" disabled={mutation.isPending || !profile}>{mutation.isPending ? "Guardando…" : "Guardar perfil"}</Button></form></section></Page>; }
 export function NotificationsPage() { return <Page title="Notificaciones"><EmptyState title="Todo tranquilo" description="El backend actual permite crear notificaciones; no incluye endpoint de listado para mostrarlas aquí." /></Page>; }
 export function BookingDetailPage() { const { id } = useParams(); const { data, isLoading, error } = useQuery({ queryKey: ["bookings", id], queryFn: () => marketplaceApi.bookings.get(id ?? ""), enabled: Boolean(id) }); return <Page title="Detalle de reserva">{isLoading ? <SkeletonGrid /> : error || !data ? <EmptyState title="Reserva no encontrada" description={error instanceof Error ? error.message : "No pudimos cargar el detalle."} /> : <BookingCard booking={data} />}</Page>; }
 export function RoleRedirect({ provider }: { provider: boolean }) { const { role } = useAuth(); if ((provider && role !== "PROVIDER") || (!provider && role !== "OWNER")) return <Navigate to="/dashboard" replace />; return null; }

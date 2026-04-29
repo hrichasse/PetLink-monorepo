@@ -49,6 +49,11 @@ export const createUserProfileController = async (request: NextRequest): Promise
   if (city !== undefined) payload.city = city;
   if (location !== undefined) payload.location = location;
 
+  function isUserRole(value: string | undefined): value is "OWNER" | "PROVIDER" | "ADMIN" {
+    return value === "OWNER" || value === "PROVIDER" || value === "ADMIN";
+  }
+  if (isUserRole(authUser.role)) payload.role = authUser.role;
+
   const { profile, isNew } = await usersService.createOrGetProfile(
     authUser.userId,
     payload
