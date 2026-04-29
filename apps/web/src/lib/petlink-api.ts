@@ -88,10 +88,10 @@ export const marketplaceApi = {
   },
   announcements: {
     list: (filters: { type?: string; city?: string; authorId?: string; isActive?: boolean } = {}) =>
-      apiRequest<Announcement[]>("marketplace", `/announcements${asQuery(filters)}`),
-    get: (id: string) => apiRequest<Announcement>("marketplace", `/announcements/${id}`),
+      apiRequest<Announcement[]>("pets", `/announcements${asQuery(filters)}`),
+    get: (id: string) => apiRequest<Announcement>("pets", `/announcements/${id}`),
     create: (payload: Partial<Announcement> & Pick<Announcement, "type" | "title" | "description">) =>
-      apiRequest<Announcement>("marketplace", "/announcements", { method: "POST", body: JSON.stringify(payload) }),
+      apiRequest<Announcement>("pets", "/announcements", { method: "POST", body: JSON.stringify(payload) }),
   },
   notifications: {
     create: (payload: { channel: "EMAIL" | "PUSH" | "IN_APP" | "SMS"; title: string; message: string; eventType: string; payload?: Record<string, unknown> }) =>

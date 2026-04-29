@@ -27,6 +27,17 @@ function isRole(value: unknown): value is Role {
   return value === "OWNER" || value === "PROVIDER";
 }
 
+function getUserIdFromJwt(token: string): string | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))) as { sub?: unknown };
+    return typeof payload.sub === "string" ? payload.sub : null;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<PetLinkSession | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -85,14 +96,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // On bootstrap we should not show toasts; stale tokens are common after deploys.
-      const me = await refreshProfile({ silent: true, silentUnauthorized: true });
-      if (me) {
+      try {
+        const me = await authApi.getMe();
+        if (!isRole(me.role)) throw new Error("Tu cuenta no tiene un rol válido");
+        setProfile(me);
+        setRoleState(me.role);
         setSession({ access_token: token, refresh_token: "", user: { id: me.userId } });
-      } else {
-        clearAccessToken();
-        setSession(null);
-        setProfile(null);
+      } catch (error) {
+        const status = error instanceof ApiError ? error.status : 0;
+
+        // Only clear token when it is truly unauthorized/invalid.
+        if (status === 401 || status === 403) {
+          clearAccessToken();
+          setSession(null);
+          setProfile(null);
+          setRoleState("OWNER");
+        } else {
+          // Keep user signed in during transient backend errors on bootstrap.
+          const fallbackUserId = getUserIdFromJwt(token);
+          if (fallbackUserId) {
+            setSession({ access_token: token, refresh_token: "", user: { id: fallbackUserId } });
+          }
+        }
       }
       setLoading(false);
     })();

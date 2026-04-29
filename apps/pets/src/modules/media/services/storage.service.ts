@@ -19,24 +19,75 @@ const buildStoragePath = (folder: string, fileName: string): string => {
   return `${folder}/${timestamp}-${sanitizeFileName(fileName)}`;
 };
 
+const isMissingBucketError = (message: string | undefined): boolean => {
+  if (!message) return false;
+  const lower = message.toLowerCase();
+  return lower.includes("bucket") && (lower.includes("not found") || lower.includes("does not exist"));
+};
+
+const ensureMediaBucketExists = async (): Promise<void> => {
+  const { data: bucket, error: getError } = await supabaseAdminClient.storage.getBucket(MEDIA_BUCKET);
+
+  if (!getError && bucket) {
+    return;
+  }
+
+  const { error: createError } = await supabaseAdminClient.storage.createBucket(MEDIA_BUCKET, {
+    public: true,
+    fileSizeLimit: 5 * 1024 * 1024,
+    allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"]
+  });
+
+  if (createError && !String(createError.message).toLowerCase().includes("already exists")) {
+    throw new AppError("Storage bucket is not available.", {
+      statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      code: ERROR_CODES.INTERNAL_ERROR,
+      details: createError.message
+    });
+  }
+};
+
+const uploadWithRetry = async (path: string, arrayBuffer: ArrayBuffer, contentType: string): Promise<void> => {
+  const firstAttempt = await supabaseAdminClient.storage.from(MEDIA_BUCKET).upload(path, arrayBuffer, {
+    contentType,
+    upsert: false
+  });
+
+  if (!firstAttempt.error) {
+    return;
+  }
+
+  if (!isMissingBucketError(firstAttempt.error.message)) {
+    throw new AppError("Failed to upload file to storage.", {
+      statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      code: ERROR_CODES.INTERNAL_ERROR,
+      details: firstAttempt.error.message
+    });
+  }
+
+  await ensureMediaBucketExists();
+
+  const secondAttempt = await supabaseAdminClient.storage.from(MEDIA_BUCKET).upload(path, arrayBuffer, {
+    contentType,
+    upsert: false
+  });
+
+  if (secondAttempt.error) {
+    throw new AppError("Failed to upload file to storage.", {
+      statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      code: ERROR_CODES.INTERNAL_ERROR,
+      details: secondAttempt.error.message
+    });
+  }
+};
+
 export const storageService = {
   uploadImage: async (file: File, folder: string): Promise<UploadedMediaFile> => {
     const fileName = sanitizeFileName(file.name || "image");
     const path = buildStoragePath(folder, fileName);
     const arrayBuffer = await file.arrayBuffer();
 
-    const { error } = await supabaseAdminClient.storage.from(MEDIA_BUCKET).upload(path, arrayBuffer, {
-      contentType: file.type,
-      upsert: false
-    });
-
-    if (error) {
-      throw new AppError("Failed to upload file to storage.", {
-        statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
-        code: ERROR_CODES.INTERNAL_ERROR,
-        details: error.message
-      });
-    }
+    await uploadWithRetry(path, arrayBuffer, file.type || "application/octet-stream");
 
     const {
       data: { publicUrl }
