@@ -15,6 +15,8 @@ export const withErrorHandler = async <T>(fn: () => RouteHandlerResponse<T>): Pr
       return fail(error.message, error.code, error.details, error.statusCode);
     }
 
+    console.error("[withErrorHandler] Unhandled error:", error);
+
     return fail(
       "Internal server error.",
       ERROR_CODES.INTERNAL_ERROR,

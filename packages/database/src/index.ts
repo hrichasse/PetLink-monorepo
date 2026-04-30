@@ -10,10 +10,11 @@ const prismaClientSingleton = () =>
     log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"]
   });
 
+// Always cache on globalThis so serverless warm containers (Vercel)
+// reuse the same connection pool instead of opening new connections
+// per module re-evaluation.
 export const prisma = globalThis.prisma ?? prismaClientSingleton();
 
-if (process.env.NODE_ENV !== "production") {
-  globalThis.prisma = prisma;
-}
+globalThis.prisma = prisma;
 
 export { PrismaClient } from "@prisma/client";
