@@ -31,6 +31,7 @@ export type Pet = {
   updatedAt: string;
   imageUrl?: string | null;
   image_url?: string | null;
+  images?: Array<{ imageUrl: string; createdAt: string }>;
   notes?: string | null;
 };
 

@@ -104,7 +104,7 @@ export const petsRepository = {
       include: {
         images: {
           orderBy: { createdAt: "desc" },
-          take: 1,
+          take: 8,
           select: { imageUrl: true, createdAt: true }
         }
       }

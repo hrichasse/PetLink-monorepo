@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { z } from "zod";
@@ -11,6 +11,7 @@ import { AnnouncementCard, BookingCard, PetCard, ServiceCard, VetCard } from "@/
 import { EmptyState } from "@/components/petlink/EmptyState";
 import { LocationMap } from "@/components/petlink/LocationMap";
 import { SkeletonGrid } from "@/components/petlink/SkeletonGrid";
+import { ApiError } from "@/lib/api";
 import { authApi, marketplaceApi, petsApi } from "@/lib/petlink-api";
 import { normalizeBookingStatus, type Booking, type BookingStatus, type PetSex } from "@/lib/petlink-data";
 import { useAuth } from "@/contexts/AuthContext";
@@ -74,18 +75,150 @@ export function DashboardPage() {
   return <Page title={role === "OWNER" ? "Hola, tu familia peluda te espera" : "Panel de proveedor"} action={role === "OWNER" ? <Button asChild variant="hero"><Link to="/services"><Search />Buscar servicio</Link></Button> : <Button asChild variant="hero"><Link to="/my-services/new"><Plus />Nuevo servicio</Link></Button>}><div className="grid gap-4 md:grid-cols-3"><Stat icon={<Heart />} label={role === "OWNER" ? "Mascotas" : "Perfil proveedor"} value={role === "OWNER" ? String(pets.data?.length ?? "—") : "Activo"} /><Stat icon={<CalendarCheck />} label="Reservas" value={String(bookings.data?.length ?? "—")} /><Stat icon={<WalletCards />} label={role === "OWNER" ? "Servicios" : "Estado"} value={role === "OWNER" ? "Real" : "Online"} /></div><section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_.8fr]"><div><h2 className="mb-4 text-2xl font-black">Próximas reservas</h2>{bookings.isLoading ? <SkeletonGrid /> : bookings.data?.length ? <div className="space-y-4">{bookings.data.slice(0, 2).map((booking) => <BookingCard key={booking.id} booking={booking} />)}</div> : <EmptyState title="Sin reservas" description="Cuando tengas reservas activas, aparecerán aquí." />}</div><div><h2 className="mb-4 text-2xl font-black">Recomendaciones</h2><div className="rounded-card border bg-card p-6 shadow-soft"><Sparkles className="h-8 w-8 text-primary" /><h3 className="mt-4 text-xl font-extrabold">Servicios conectados</h3><p className="mt-2 text-muted-foreground">Explora proveedores reales y reserva con tus mascotas registradas.</p><Button asChild className="mt-5" variant="soft"><Link to="/services">Ver servicios</Link></Button></div></div></section></Page>;
 }
 
-export function PetsPage() { const { data, isLoading, error } = useQuery({ queryKey: ["pets"], queryFn: petsApi.list }); return <Page title="Mis mascotas" action={<Button asChild variant="hero"><Link to="/pets/new"><Plus />Nueva mascota</Link></Button>}>{isLoading ? <SkeletonGrid /> : error ? <EmptyState title="No se pudieron cargar las mascotas" description={error instanceof Error ? error.message : "Intenta nuevamente."} /> : data?.length ? <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{data.map((pet) => <Link key={pet.id} to={`/pets/${pet.id}`}><PetCard pet={pet} /></Link>)}</div> : <EmptyState title="Aún no tienes mascotas" description="Agrega tu primera mascota para reservar servicios personalizados." action="Crear mascota" />}</Page>; }
+export function PetsPage() {
+  const { data, isLoading, error, refetch, isFetching } = useQuery({ queryKey: ["pets"], queryFn: petsApi.list });
+  const errorDescription = error instanceof ApiError
+    ? `Error ${error.status}: ${error.message}`
+    : error instanceof Error
+      ? error.message
+      : "Intenta nuevamente.";
+
+  return <Page title="Mis mascotas" action={<Button asChild variant="hero"><Link to="/pets/new"><Plus />Nueva mascota</Link></Button>}>{isLoading ? <SkeletonGrid /> : error ? <EmptyState title="No se pudieron cargar las mascotas" description={errorDescription} action={isFetching ? "Reintentando..." : "Reintentar"} onAction={() => { void refetch(); }} /> : data?.length ? <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{data.map((pet) => <Link key={pet.id} to={`/pets/${pet.id}`}><PetCard pet={pet} /></Link>)}</div> : <EmptyState title="Aún no tienes mascotas" description="Agrega tu primera mascota para reservar servicios personalizados." action="Crear mascota" />}</Page>;
+}
 
 export function PetFormPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const form = useForm<PetValues>({ resolver: zodResolver(petSchema), defaultValues: { name: "", species: "", breed: "", age: 1, weight: 1, sex: "FEMALE", description: "", isSterilized: false, isVaccinated: true } });
   const [file, setFile] = useState<File | null>(null);
-  const mutation = useMutation({ mutationFn: (values: PetValues) => petsApi.create({ name: values.name, species: values.species, breed: values.breed, age: values.age, weight: values.weight, sex: values.sex as PetSex, description: values.description || null, isSterilized: values.isSterilized, isVaccinated: values.isVaccinated }), onSuccess: async (pet) => { let imageUploadFailed = false; if (file) { try { await petsApi.uploadImage(pet.id, file); } catch { imageUploadFailed = true; } } await queryClient.invalidateQueries({ queryKey: ["pets"] }); if (imageUploadFailed) { toast.success("Mascota guardada. La foto no se pudo subir; puedes intentarlo de nuevo más tarde."); } else { toast.success("Mascota guardada correctamente"); } navigate(`/pets/${pet.id}`); }, onError: (error) => { toast.error(error instanceof Error ? error.message : "No se pudo guardar la mascota"); } });
+  const mutation = useMutation({ mutationFn: (values: PetValues) => petsApi.create({ name: values.name, species: values.species, breed: values.breed, age: values.age, weight: values.weight, sex: values.sex as PetSex, description: values.description || null, isSterilized: values.isSterilized, isVaccinated: values.isVaccinated }), onSuccess: async (pet) => { let imageUploadError: string | null = null; if (file) { try { await petsApi.uploadImage(pet.id, file); } catch (error) { imageUploadError = error instanceof Error ? error.message : "No se pudo subir la foto."; } } await queryClient.invalidateQueries({ queryKey: ["pets"] }); if (imageUploadError) { toast.error(`Mascota guardada, pero la foto falló: ${imageUploadError}`); } else { toast.success("Mascota guardada correctamente"); } navigate(`/pets/${pet.id}`); }, onError: (error) => { toast.error(error instanceof Error ? error.message : "No se pudo guardar la mascota"); } });
   return <Page title="Nueva mascota"><form className="grid gap-5 rounded-card border bg-card p-6 shadow-soft md:grid-cols-2" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}><Input label="Nombre" error={form.formState.errors.name?.message} props={form.register("name")} /><Input label="Especie" error={form.formState.errors.species?.message} props={form.register("species")} /><Input label="Raza" error={form.formState.errors.breed?.message} props={form.register("breed")} /><Input label="Edad" type="number" error={form.formState.errors.age?.message} props={form.register("age")} /><Input label="Peso" type="number" error={form.formState.errors.weight?.message} props={form.register("weight")} /><label className="block text-sm font-bold">Sexo<select className="input-shell mt-2" {...form.register("sex")}><option value="FEMALE">Hembra</option><option value="MALE">Macho</option></select></label><label className="md:col-span-2 block text-sm font-bold">Imagen de mascota<div className="mt-2 flex items-center gap-3 rounded-card border border-dashed p-4"><ImagePlus className="text-primary" /><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(e) => setFile(e.target.files?.[0] ?? null)} aria-label="Subir imagen de mascota" /></div><span className="mt-2 block text-xs font-normal text-muted-foreground">En celular podrás tomar la foto con la cámara o elegirla desde tu galería.</span></label><label className="md:col-span-2 block text-sm font-bold">Descripción<textarea className="input-shell mt-2 min-h-28" {...form.register("description")} /></label><label className="font-bold"><input type="checkbox" className="mr-2" {...form.register("isSterilized")} />Esterilizada</label><label className="font-bold"><input type="checkbox" className="mr-2" {...form.register("isVaccinated")} />Vacunas al día</label><Button className="md:col-span-2" variant="hero" type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Guardando…" : "Guardar mascota"}</Button></form></Page>;
 }
 
-export function PetDetailPage() { const { id } = useParams(); const navigate = useNavigate(); const queryClient = useQueryClient(); const handleError = useApiError(); const { data: pet, isLoading, error } = useQuery({ queryKey: ["pets", id], queryFn: () => petsApi.get(id ?? ""), enabled: Boolean(id) }); const deleteMutation = useMutation({ mutationFn: (petId: string) => petsApi.remove(petId), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["pets"] }); toast.success("Mascota eliminada correctamente"); navigate("/pets"); }, onError: handleError }); return <Page title={pet?.name ?? "Mascota"} action={<div className="flex gap-3"><Button asChild variant="outline"><Link to="/pets">Volver</Link></Button><Button variant="outline" disabled={deleteMutation.isPending || !id} onClick={() => { if (!id) return; if (!window.confirm("¿Seguro que quieres eliminar esta mascota?")) return; deleteMutation.mutate(id); }}><Trash2 className="h-4 w-4" />{deleteMutation.isPending ? "Eliminando..." : "Eliminar"}</Button></div>}>{isLoading ? <SkeletonGrid /> : error || !pet ? <EmptyState title="Mascota no encontrada" description={error instanceof Error ? error.message : "No pudimos cargar el detalle."} /> : <div className="grid gap-6 lg:grid-cols-[.8fr_1.2fr]"><PetCard pet={pet} /><section className="rounded-card border bg-card p-6 shadow-soft"><h2 className="text-2xl font-black">Detalle</h2><div className="mt-5 grid gap-3 text-sm"><p><strong>Peso:</strong> {pet.weight} kg</p><p><strong>Sexo:</strong> {pet.sex === "FEMALE" ? "Hembra" : "Macho"}</p><p><strong>Esterilizada:</strong> {pet.isSterilized ? "Sí" : "No"}</p><p><strong>Vacunas:</strong> {pet.isVaccinated ? "Al día" : "Pendientes"}</p></div></section></div>}</Page>; }
+export function PetDetailPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const handleError = useApiError();
+  const [isEditing, setIsEditing] = useState(false);
+  const [isImageOpen, setIsImageOpen] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+
+  const { data: pet, isLoading, error } = useQuery({
+    queryKey: ["pets", id],
+    queryFn: () => petsApi.get(id ?? ""),
+    enabled: Boolean(id)
+  });
+
+  const bookings = useQuery({
+    queryKey: ["bookings", "owner"],
+    queryFn: () => marketplaceApi.bookings.list("owner"),
+    enabled: Boolean(pet)
+  });
+
+  const form = useForm<PetValues>({
+    resolver: zodResolver(petSchema),
+    defaultValues: {
+      name: "",
+      species: "",
+      breed: "",
+      age: 1,
+      weight: 1,
+      sex: "FEMALE",
+      description: "",
+      isSterilized: false,
+      isVaccinated: true
+    }
+  });
+
+  useEffect(() => {
+    if (!pet) return;
+    form.reset({
+      name: pet.name,
+      species: pet.species,
+      breed: pet.breed,
+      age: pet.age,
+      weight: Number(pet.weight),
+      sex: pet.sex,
+      description: pet.description ?? "",
+      isSterilized: pet.isSterilized,
+      isVaccinated: pet.isVaccinated
+    });
+  }, [pet, form]);
+
+  const gallery = useMemo(() => {
+    const images = pet?.images?.map((item) => item.imageUrl) ?? [];
+    const fallback = pet?.imageUrl ?? pet?.image_url ?? null;
+    const all = fallback ? [fallback, ...images] : images;
+    return Array.from(new Set(all.filter(Boolean)));
+  }, [pet]);
+
+  useEffect(() => {
+    if (!gallery.length) {
+      setGalleryIndex(0);
+      return;
+    }
+    if (galleryIndex >= gallery.length) {
+      setGalleryIndex(0);
+    }
+  }, [gallery, galleryIndex]);
+
+  const selectedImage = gallery[galleryIndex] ?? null;
+
+  const petBookings = useMemo(() => {
+    if (!pet) return [];
+    return (bookings.data ?? [])
+      .filter((booking) => booking.petId === pet.id)
+      .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime())
+      .slice(0, 4);
+  }, [bookings.data, pet]);
+
+  const deleteMutation = useMutation({
+    mutationFn: (petId: string) => petsApi.remove(petId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["pets"] });
+      toast.success("Mascota eliminada correctamente");
+      navigate("/pets");
+    },
+    onError: handleError
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (values: PetValues) => {
+      if (!id) throw new Error("Mascota inválida");
+
+      await petsApi.update(id, {
+        name: values.name,
+        species: values.species,
+        breed: values.breed,
+        age: values.age,
+        weight: values.weight,
+        sex: values.sex,
+        description: values.description || null,
+        isSterilized: values.isSterilized,
+        isVaccinated: values.isVaccinated
+      });
+
+      for (const file of uploadFiles) {
+        await petsApi.uploadImage(id, file);
+      }
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["pets"] });
+      await queryClient.invalidateQueries({ queryKey: ["pets", id] });
+      setUploadFiles([]);
+      setIsEditing(false);
+      setIsImageOpen(false);
+      toast.success("Perfil de mascota actualizado");
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "No se pudo actualizar la mascota");
+    }
+  });
+
+  return <Page title={pet?.name ?? "Mascota"} action={<div className="flex flex-wrap gap-3"><Button asChild variant="outline"><Link to="/pets">Volver</Link></Button>{!isEditing ? <Button variant="hero" type="button" onClick={() => setIsEditing(true)}>Editar perfil</Button> : <Button variant="outline" type="button" onClick={() => { setIsEditing(false); setUploadFiles([]); }}>Cancelar edición</Button>}<Button variant="outline" disabled={deleteMutation.isPending || !id} onClick={() => { if (!id) return; if (!window.confirm("¿Seguro que quieres eliminar esta mascota?")) return; deleteMutation.mutate(id); }}><Trash2 className="h-4 w-4" />{deleteMutation.isPending ? "Eliminando..." : "Eliminar"}</Button></div>}>{isLoading ? <SkeletonGrid /> : error || !pet ? <EmptyState title="Mascota no encontrada" description={error instanceof Error ? error.message : "No pudimos cargar el detalle."} /> : <><div className="grid gap-6 lg:grid-cols-[1.05fr_.95fr]"><div><PetCard pet={pet} size="large" onImageClick={() => { if (selectedImage) setIsImageOpen(true); }} />{gallery.length > 1 ? <div className="mt-4 grid grid-cols-4 gap-3">{gallery.map((image, index) => <button type="button" key={`${image}-${index}`} onClick={() => setGalleryIndex(index)} className={`overflow-hidden rounded-2xl border transition ${index === galleryIndex ? "border-primary" : "border-border"}`}><img src={image} alt={`Foto ${index + 1} de ${pet.name}`} className="h-20 w-full object-cover" /></button>)}</div> : null}</div><section className="rounded-card border bg-card p-6 shadow-soft">{isEditing ? <form className="grid gap-4 md:grid-cols-2" onSubmit={form.handleSubmit((values) => updateMutation.mutate(values))}><Input label="Nombre" error={form.formState.errors.name?.message} props={form.register("name")} /><Input label="Especie" error={form.formState.errors.species?.message} props={form.register("species")} /><Input label="Raza" error={form.formState.errors.breed?.message} props={form.register("breed")} /><Input label="Edad" type="number" error={form.formState.errors.age?.message} props={form.register("age")} /><Input label="Peso" type="number" error={form.formState.errors.weight?.message} props={form.register("weight")} /><label className="block text-sm font-bold">Sexo<select className="input-shell mt-2" {...form.register("sex")}><option value="FEMALE">Hembra</option><option value="MALE">Macho</option></select></label><label className="md:col-span-2 block text-sm font-bold">Agregar más fotos<div className="mt-2 rounded-card border border-dashed p-3"><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => setUploadFiles(Array.from(event.target.files ?? []))} /></div><span className="mt-2 block text-xs font-normal text-muted-foreground">Puedes seleccionar varias fotos nuevas para la galería.</span></label><label className="md:col-span-2 block text-sm font-bold">Descripción<textarea className="input-shell mt-2 min-h-24" {...form.register("description")} /></label><label className="font-bold"><input type="checkbox" className="mr-2" {...form.register("isSterilized")} />Esterilizada</label><label className="font-bold"><input type="checkbox" className="mr-2" {...form.register("isVaccinated")} />Vacunas al día</label><Button className="md:col-span-2" variant="hero" disabled={updateMutation.isPending}>{updateMutation.isPending ? "Guardando..." : "Guardar cambios"}</Button></form> : <><h2 className="text-2xl font-black">Detalle</h2><div className="mt-5 grid gap-3 text-sm"><p><strong>Especie:</strong> {pet.species}</p><p><strong>Raza:</strong> {pet.breed}</p><p><strong>Edad:</strong> {pet.age} año{pet.age === 1 ? "" : "s"}</p><p><strong>Peso:</strong> {pet.weight} kg</p><p><strong>Sexo:</strong> {pet.sex === "FEMALE" ? "Hembra" : "Macho"}</p><p><strong>Esterilizada:</strong> {pet.isSterilized ? "Sí" : "No"}</p><p><strong>Vacunas:</strong> {pet.isVaccinated ? "Al día" : "Pendientes"}</p><p><strong>Registrada:</strong> {new Date(pet.createdAt).toLocaleDateString("es-CL")}</p></div><div className="mt-6 rounded-card border bg-background p-4"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Descripción</p><p className="mt-2 text-sm text-muted-foreground">{pet.description ?? pet.notes ?? "Aún no tiene descripción."}</p></div></>}</section></div><section className="mt-6 rounded-card border bg-card p-6 shadow-soft"><h2 className="text-xl font-black">Historial rápido</h2>{bookings.isLoading ? <p className="mt-3 text-sm text-muted-foreground">Cargando historial...</p> : petBookings.length ? <div className="mt-4 space-y-3">{petBookings.map((booking) => <div key={booking.id} className="rounded-card border bg-background p-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-bold">{booking.serviceTitle ?? "Servicio"}</p><span className="rounded-full bg-secondary px-3 py-1 text-xs font-bold text-secondary-foreground">{normalizeBookingStatus(booking.status)}</span></div><p className="mt-1 text-xs text-muted-foreground">{new Date(booking.bookingDate).toLocaleString("es-CL")} · {booking.serviceLocation ?? "Ubicación no definida"}</p></div>)}</div> : <p className="mt-3 text-sm text-muted-foreground">Aún no hay reservas registradas para esta mascota.</p>}</section>{isImageOpen && selectedImage ? <div className="fixed inset-0 z-50 bg-black/80 p-4" onClick={() => setIsImageOpen(false)}><button type="button" className="absolute right-4 top-4 rounded-full bg-white/20 px-3 py-1 text-sm font-bold text-white" onClick={() => setIsImageOpen(false)}>Cerrar</button><div className="flex h-full items-center justify-center"><img src={selectedImage} alt={`Foto ampliada de ${pet.name}`} className="max-h-[92vh] max-w-[92vw] rounded-card border border-white/20 object-contain" /></div></div> : null}</>}</Page>;
+}
 
 export function ServicesPage() { const [location, setLocation] = useState(""); const [type, setType] = useState(""); const { data = [], isLoading, error } = useQuery({ queryKey: ["services", type, location], queryFn: () => marketplaceApi.services.list({ type, location, isActive: true }) }); return <Page title="Explorar servicios" action={<Button variant="soft"><Search />Filtros</Button>}><div className="mb-5 grid gap-3 md:grid-cols-4"><input className="input-shell md:col-span-2" placeholder="Ciudad" value={location} onChange={(e) => setLocation(e.target.value)} aria-label="Buscar servicios por ciudad" /><select className="input-shell" value={type} onChange={(e) => setType(e.target.value)} aria-label="Filtrar por tipo de servicio"><option value="">Todos los servicios</option>{SERVICE_TYPE_OPTIONS.map((serviceType) => <option key={serviceType.value} value={serviceType.value}>{serviceType.label}</option>)}</select><select className="input-shell" aria-label="Orden"><option>Disponibles</option></select></div>{isLoading ? <SkeletonGrid /> : error ? <EmptyState title="No se pudieron cargar los servicios" description={error instanceof Error ? error.message : "Intenta nuevamente."} /> : data.length ? <div className="grid gap-5 md:grid-cols-3">{data.map((service) => <Link key={service.id} to={`/services/${service.id}`}><ServiceCard service={service} /></Link>)}</div> : <EmptyState title="Sin servicios" description="No hay servicios disponibles con esos filtros." />}</Page>; }
 
@@ -211,8 +344,8 @@ export function MatchPage() {
             if (matchPhotoFiles.length > 1) {
               toast.success("Se subió la foto principal. Las fotos extra quedan como vista previa por ahora.");
             }
-          } catch {
-            toast.error("La mascota se creó, pero la foto no se pudo subir.");
+          } catch (error) {
+            toast.error(error instanceof Error ? `La mascota se creó, pero la foto no se pudo subir: ${error.message}` : "La mascota se creó, pero la foto no se pudo subir.");
           }
         }
 

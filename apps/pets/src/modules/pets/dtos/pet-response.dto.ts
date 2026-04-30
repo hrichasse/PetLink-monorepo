@@ -12,6 +12,7 @@ export type PetResponseDto = {
   weight: number;
   sex: PetSex;
   imageUrl: string | null;
+  images: Array<{ imageUrl: string; createdAt: string }>;
   description: string | null;
   isSterilized: boolean;
   isVaccinated: boolean;
@@ -30,6 +31,10 @@ export const toPetResponseDto = (pet: PetModel): PetResponseDto => {
     weight: Number(pet.weight),
     sex: pet.sex,
     imageUrl: pet.images?.[0]?.imageUrl ?? null,
+    images: (pet.images ?? []).map((image) => ({
+      imageUrl: image.imageUrl,
+      createdAt: image.createdAt.toISOString()
+    })),
     description: pet.description,
     isSterilized: pet.isSterilized,
     isVaccinated: pet.isVaccinated,

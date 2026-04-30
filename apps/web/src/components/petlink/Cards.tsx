@@ -3,9 +3,17 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/petlink/StatusBadge";
 import { normalizeBookingStatus, type Announcement, type Booking, type Pet, type Service, type Vet } from "@/lib/petlink-data";
 
-export function PetCard({ pet }: { pet: Pet }) {
+type PetCardProps = {
+  pet: Pet;
+  size?: "default" | "large";
+  onImageClick?: () => void;
+};
+
+export function PetCard({ pet, size = "default", onImageClick }: PetCardProps) {
+  const isLarge = size === "large";
   const image = pet.imageUrl ?? pet.image_url;
-  return <article className="group rounded-card border bg-card p-5 shadow-soft transition-all hover:-translate-y-1 hover:shadow-warm"><div className="mb-4 flex h-28 items-center justify-center rounded-2xl bg-petal text-5xl">{image ? <img src={image} alt={pet.name} className="h-full w-full rounded-2xl object-cover" /> : "🐾"}</div><div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-extrabold">{pet.name}</h3><p className="text-sm text-muted-foreground">{pet.species} · {pet.breed} · {pet.age} año{pet.age === 1 ? "" : "s"}</p></div><PawPrint className="h-5 w-5 text-primary" /></div><p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{pet.description ?? pet.notes ?? "Sin descripción"}</p></article>;
+
+  return <article className={`group rounded-card border bg-card p-5 shadow-soft transition-all hover:-translate-y-1 hover:shadow-warm ${isLarge ? "md:p-7" : ""}`}><div className={`mb-4 flex items-center justify-center overflow-hidden rounded-2xl bg-petal text-5xl ${isLarge ? "h-56 md:h-72" : "h-40"}`}>{image ? onImageClick ? <button type="button" aria-label={`Ver foto de ${pet.name} en grande`} className="h-full w-full" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onImageClick(); }}><img src={image} alt={pet.name} className="h-full w-full cursor-zoom-in rounded-2xl object-cover transition-transform duration-300 group-hover:scale-[1.02]" /></button> : <img src={image} alt={pet.name} className="h-full w-full rounded-2xl object-cover" /> : "🐾"}</div><div className="flex items-start justify-between gap-3"><div><h3 className={`font-extrabold ${isLarge ? "text-4xl" : "text-xl"}`}>{pet.name}</h3><p className={`text-muted-foreground ${isLarge ? "mt-2 text-lg" : "text-sm"}`}>{pet.species} · {pet.breed} · {pet.age} año{pet.age === 1 ? "" : "s"}</p></div><PawPrint className={`text-primary ${isLarge ? "h-7 w-7" : "h-5 w-5"}`} /></div><div className="mt-4 flex flex-wrap gap-2"><span className="rounded-full bg-secondary px-3 py-1 text-xs font-bold text-secondary-foreground">{pet.sex === "FEMALE" ? "Hembra" : "Macho"}</span><span className="rounded-full bg-primary-soft px-3 py-1 text-xs font-bold text-primary">{pet.weight} kg</span><span className="rounded-full bg-accent px-3 py-1 text-xs font-bold text-accent-foreground">{pet.isVaccinated ? "Vacunas al día" : "Vacunas pendientes"}</span></div><p className={`mt-4 line-clamp-3 text-muted-foreground ${isLarge ? "text-lg" : "text-sm"}`}>{pet.description ?? pet.notes ?? "Sin descripción"}</p></article>;
 }
 
 export function ServiceCard({ service }: { service: Service }) {
