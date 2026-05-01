@@ -26,11 +26,13 @@ function buildDatasourceUrl(): string | undefined {
   return `${raw}${separator}connection_limit=1`;
 }
 
-const prismaClientSingleton = () =>
-  new PrismaClient({
+const prismaClientSingleton = () => {
+  const url = buildDatasourceUrl();
+  return new PrismaClient({
     log: ["error"],
-    datasources: { db: { url: buildDatasourceUrl() } },
+    ...(url ? { datasources: { db: { url } } } : {}),
   });
+};
 
 // Always cache on globalThis so serverless warm containers (Vercel)
 // reuse the same connection pool instead of opening new connections
