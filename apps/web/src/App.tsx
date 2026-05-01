@@ -18,6 +18,9 @@ const queryClient = new QueryClient({
       staleTime: 60_000,
       // Keep unused query data in cache for 5 minutes
       gcTime: 5 * 60_000,
+      // Never refetch just because the user switched back to this tab.
+      // All mutations already invalidate the relevant queries manually.
+      refetchOnWindowFocus: false,
       // Only retry server errors (5xx). Never retry client errors (4xx).
       retry: (failureCount, error) => {
         if (error instanceof ApiError && error.status > 0 && error.status < 500) return false;

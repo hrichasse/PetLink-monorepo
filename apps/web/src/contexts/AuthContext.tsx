@@ -109,8 +109,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         const status = error instanceof ApiError ? error.status : 0;
 
-        // Only clear token when it is truly unauthorized/invalid.
-        if (status === 401 || status === 403) {
+        // Only clear tokens when the server explicitly rejects the token
+        // (401 = invalid/expired). 403 can be a temporary Supabase issue or
+        // a permissions error unrelated to the token itself — do NOT sign out.
+        if (status === 401) {
           clearAuthTokens();
           setSession(null);
           setProfile(null);

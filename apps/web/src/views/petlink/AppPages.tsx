@@ -825,7 +825,7 @@ export function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const form = useForm<ProfileValues>({
     resolver: zodResolver(profileSchema),
-    values: {
+    defaultValues: {
       fullName: profile?.fullName ?? "",
       phone: profile?.phone ?? "",
       city: profile?.city ?? "",
@@ -834,6 +834,20 @@ export function ProfilePage() {
   });
   const currentLocation = form.watch("location");
   const currentCity = form.watch("city");
+
+  // Sync form with profile data only when not actively editing,
+  // so typing in the form is never overwritten by a background refresh.
+  useEffect(() => {
+    if (!isEditing && profile) {
+      form.reset({
+        fullName: profile.fullName ?? "",
+        phone: profile.phone ?? "",
+        city: profile.city ?? "",
+        location: profile.location ?? ""
+      });
+    }
+  }, [profile, isEditing, form]);
+
   const mutation = useMutation({
     mutationFn: (values: ProfileValues) => authApi.updateMe({
       fullName: values.fullName,

@@ -129,7 +129,9 @@ export async function apiRequest<T>(area: ApiArea, path: string, init: RequestIn
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   let response = await fetch(`${baseUrl}${path}`, { ...init, headers });
-  if (response.status === 401) {
+  // Retry with a fresh token on 401 (expired) OR 403 (Supabase can return
+  // 403 for revoked / mismatched-project tokens instead of 401).
+  if (response.status === 401 || response.status === 403) {
     const nextAccessToken = await refreshAccessToken();
     if (nextAccessToken) {
       headers.set("Authorization", `Bearer ${nextAccessToken}`);
