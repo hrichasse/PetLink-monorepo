@@ -18,8 +18,9 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "prisma:generate": "turbo run prisma:generate",
-    "prisma:migrate": "cd packages/database && npx prisma migrate dev",
-    "prisma:studio": "cd packages/database && npx prisma studio"
+    "prisma:migrate": "env -u DATABASE_URL -u DIRECT_URL npx prisma migrate dev --schema=packages/database/prisma/schema.prisma",
+    "prisma:studio": "env -u DATABASE_URL -u DIRECT_URL npx prisma studio --schema=packages/database/prisma/schema.prisma",
+    "prisma:status": "env -u DATABASE_URL -u DIRECT_URL npx prisma migrate status --schema=packages/database/prisma/schema.prisma"
   },
   "devDependencies": {
     "turbo": "^2.5.3",
