@@ -7,7 +7,7 @@ declare global {
 
 const prismaClientSingleton = () =>
   new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"]
+    log: ["error"]
   });
 
 // Always cache on globalThis so serverless warm containers (Vercel)

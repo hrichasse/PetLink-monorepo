@@ -9,9 +9,11 @@
   ],
   "scripts": {
     "dev": "turbo run dev",
+    "dev:stable": "node scripts/dev-stable.mjs",
     "dev:auth": "turbo run dev --filter=@petlink/auth",
     "dev:pets": "turbo run dev --filter=@petlink/pets",
     "dev:marketplace": "turbo run dev --filter=@petlink/marketplace",
+    "warmup": "node scripts/warmup.mjs",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",

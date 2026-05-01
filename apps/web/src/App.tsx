@@ -8,9 +8,26 @@ import { AppShell } from "@/components/petlink/Layout";
 import { LandingPage } from "@/views/petlink/Landing";
 import { LoginPage, RegisterPage } from "@/views/petlink/AuthPages";
 import { AnnouncementsPage, BookingDetailPage, BookingsPage, DashboardPage, MatchPage, NotificationsPage, PetDetailPage, PetFormPage, PetsPage, ProfilePage, ProviderServiceFormPage, ProviderServicesPage, ServicesPage, ServiceDetailPage, SubscriptionsPage, VetsPage } from "@/views/petlink/AppPages";
+import { ApiError } from "@/lib/api";
 import NotFound from "./views/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Don't treat data as stale for 60 seconds — prevents constant refetches
+      staleTime: 60_000,
+      // Keep unused query data in cache for 5 minutes
+      gcTime: 5 * 60_000,
+      // Only retry server errors (5xx). Never retry client errors (4xx).
+      retry: (failureCount, error) => {
+        if (error instanceof ApiError && error.status > 0 && error.status < 500) return false;
+        return failureCount < 2;
+      },
+      // Flat 400ms between retries instead of exponential 1s/2s/4s
+      retryDelay: 400,
+    },
+  },
+});
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth();
