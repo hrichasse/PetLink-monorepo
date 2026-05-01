@@ -1,5 +1,14 @@
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Tells Next.js to trace files from the monorepo root so Prisma's
+  // engine binary and generated client are included in every
+  // serverless function bundle on Vercel.
+  outputFileTracingRoot: path.join(__dirname, "../../"),
   experimental: {
     instrumentationHook: true,
   },

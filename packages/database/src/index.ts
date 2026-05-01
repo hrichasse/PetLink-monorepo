@@ -17,15 +17,13 @@ declare global {
 function buildDatasourceUrl(): string | undefined {
   const raw = process.env.DATABASE_URL;
   if (!raw) return undefined;
-  try {
-    const url = new URL(raw);
-    if (!url.searchParams.has("connection_limit")) {
-      url.searchParams.set("connection_limit", "1");
-    }
-    return url.toString();
-  } catch {
-    return raw;
-  }
+  // Use plain string concatenation — never parse through `new URL()`.
+  // Parsing and re-serialising a postgresql:// URL can corrupt
+  // percent-encoded characters in the password (e.g. £ → %C2%A3 may be
+  // double-encoded or decoded differently on Node 18/20).
+  if (raw.includes("connection_limit=")) return raw;
+  const separator = raw.includes("?") ? "&" : "?";
+  return `${raw}${separator}connection_limit=1`;
 }
 
 const prismaClientSingleton = () =>
