@@ -76,7 +76,8 @@ export function DashboardPage() {
 }
 
 export function PetsPage() {
-  const { data, isLoading, error, refetch, isFetching } = useQuery({ queryKey: ["pets"], queryFn: petsApi.list });
+  const { session, loading } = useAuth();
+  const { data, isLoading, error, refetch, isFetching } = useQuery({ queryKey: ["pets"], queryFn: petsApi.list, enabled: !loading && !!session });
   const errorDescription = error instanceof ApiError
     ? `Error ${error.status}: ${error.message}`
     : error instanceof Error

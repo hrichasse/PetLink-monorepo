@@ -27,15 +27,64 @@ function isRole(value: unknown): value is Role {
   return value === "OWNER" || value === "PROVIDER";
 }
 
-function getUserIdFromJwt(token: string): string | null {
+type JwtPayload = { sub?: string; exp?: number; email?: string; user_metadata?: Record<string, unknown> };
+
+function decodeJwtPayload(token: string): JwtPayload | null {
   try {
     const parts = token.split(".");
     if (parts.length < 2) return null;
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))) as { sub?: unknown };
-    return typeof payload.sub === "string" ? payload.sub : null;
+    return JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))) as JwtPayload;
   } catch {
     return null;
   }
+}
+
+function getUserIdFromJwt(token: string): string | null {
+  return decodeJwtPayload(token)?.sub ?? null;
+}
+
+function isJwtExpired(token: string): boolean {
+  const exp = decodeJwtPayload(token)?.exp;
+  if (!exp) return false;
+  return Date.now() / 1000 > exp - 30; // 30s de margen
+}
+
+const PROFILE_CACHE_KEY = "petlink:profile_v1";
+const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
+
+function getCachedProfile(): Profile | null {
+  try {
+    const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { profile: Profile; ts: number };
+    if (Date.now() - parsed.ts > PROFILE_CACHE_TTL_MS) return null;
+    return parsed.profile;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedProfile(p: Profile): void {
+  try { localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify({ profile: p, ts: Date.now() })); } catch { /* storage full */ }
+}
+
+function clearCachedProfile(): void {
+  try { localStorage.removeItem(PROFILE_CACHE_KEY); } catch { /* noop */ }
+}
+
+function buildSessionFromToken(token: string): PetLinkSession | null {
+  const payload = decodeJwtPayload(token);
+  if (!payload?.sub) return null;
+
+  return {
+    access_token: token,
+    refresh_token: "",
+    user: {
+      id: payload.sub,
+      ...(payload.email ? { email: payload.email } : {}),
+      ...(payload.user_metadata ? { user_metadata: payload.user_metadata } : {}),
+    },
+  };
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -46,6 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signOutSilently() {
     clearAuthTokens();
+    clearCachedProfile();
     setSession(null);
     setProfile(null);
     setRoleState("OWNER");
@@ -55,11 +105,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const me = await authApi.getMe();
       if (!isRole(me.role)) throw new Error("Tu cuenta no tiene un rol válido");
+      setCachedProfile(me);
       setProfile(me);
       setRoleState(me.role);
       return me;
     } catch (error) {
       if (options?.silentUnauthorized && error instanceof ApiError && error.status === 401) {
+        clearCachedProfile();
         return null;
       }
       if (options?.silent) {
@@ -91,41 +143,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void (async () => {
       let token = await getAccessToken();
+      if (token && isJwtExpired(token)) {
+        token = await refreshAccessToken();
+      }
+
       if (!token) {
         token = await refreshAccessToken();
       }
 
       if (!token) {
+        await signOutSilently();
         setLoading(false);
         return;
       }
 
-      try {
-        const me = await authApi.getMe();
-        if (!isRole(me.role)) throw new Error("Tu cuenta no tiene un rol válido");
-        setProfile(me);
-        setRoleState(me.role);
-        setSession({ access_token: token, refresh_token: "", user: { id: me.userId } });
-      } catch (error) {
-        const status = error instanceof ApiError ? error.status : 0;
+      const restoredSession = buildSessionFromToken(token);
+      if (!restoredSession) {
+        await signOutSilently();
+        setLoading(false);
+        return;
+      }
 
-        // Only clear tokens when the server explicitly rejects the token
-        // (401 = invalid/expired). 403 can be a temporary Supabase issue or
-        // a permissions error unrelated to the token itself — do NOT sign out.
-        if (status === 401) {
-          clearAuthTokens();
-          setSession(null);
-          setProfile(null);
-          setRoleState("OWNER");
-        } else {
-          // Keep user signed in during transient backend errors on bootstrap.
-          const fallbackUserId = getUserIdFromJwt(token);
-          if (fallbackUserId) {
-            setSession({ access_token: token, refresh_token: "", user: { id: fallbackUserId } });
-          }
+      setSession(restoredSession);
+
+      const cachedProfile = getCachedProfile();
+      if (cachedProfile?.userId === restoredSession.user.id && isRole(cachedProfile.role)) {
+        setProfile(cachedProfile);
+        setRoleState(cachedProfile.role);
+      }
+
+      setLoading(false);
+
+      const me = await refreshProfile({ silentUnauthorized: true, silent: true });
+      if (!me) {
+        const currentToken = await getAccessToken();
+        if (!currentToken) {
+          await signOutSilently();
         }
       }
-      setLoading(false);
     })();
   }, []);
 
@@ -157,9 +212,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       toast.error("Google no está conectado en el auth real de PetLink");
     },
     signOut: async () => {
-      clearAuthTokens();
-      setSession(null);
-      setProfile(null);
+      await signOutSilently();
       toast.success("Sesión cerrada");
     },
   }), [loading, profile, role, session]);

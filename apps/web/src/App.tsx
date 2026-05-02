@@ -21,9 +21,14 @@ const queryClient = new QueryClient({
       // Never refetch just because the user switched back to this tab.
       // All mutations already invalidate the relevant queries manually.
       refetchOnWindowFocus: false,
-      // Only retry server errors (5xx). Never retry client errors (4xx).
+      // Retry on server errors (5xx) and on auth errors (401/403) since those
+      // can be resolved by the token refresh logic in apiRequest.
+      // Never retry other 4xx (bad request, not found, etc.).
       retry: (failureCount, error) => {
-        if (error instanceof ApiError && error.status > 0 && error.status < 500) return false;
+        if (error instanceof ApiError && error.status > 0 && error.status < 500) {
+          if (error.status === 401 || error.status === 403) return failureCount < 1;
+          return false;
+        }
         return failureCount < 2;
       },
       // Flat 400ms between retries instead of exponential 1s/2s/4s
