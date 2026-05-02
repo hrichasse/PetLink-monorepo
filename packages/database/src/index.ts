@@ -17,13 +17,23 @@ declare global {
 function buildDatasourceUrl(): string | undefined {
   const raw = process.env.DATABASE_URL;
   if (!raw) return undefined;
-  // Use plain string concatenation — never parse through `new URL()`.
-  // Parsing and re-serialising a postgresql:// URL can corrupt
-  // percent-encoded characters in the password (e.g. £ → %C2%A3 may be
-  // double-encoded or decoded differently on Node 18/20).
-  if (raw.includes("connection_limit=")) return raw;
-  const separator = raw.includes("?") ? "&" : "?";
-  return `${raw}${separator}connection_limit=1`;
+
+  // Never reparse with `new URL()` to avoid touching percent-encoded passwords.
+  const [basePart, existingQuery = ""] = raw.split("?", 2);
+  const base = basePart ?? raw;
+  const params = existingQuery ? existingQuery.split("&").filter(Boolean) : [];
+  const hasConnectionLimit = params.some((p) => p.startsWith("connection_limit="));
+  const hasPgBouncer = params.some((p) => p.startsWith("pgbouncer="));
+
+  if (!hasConnectionLimit) params.push("connection_limit=1");
+
+  // Supabase pooler requires PgBouncer-safe mode in Prisma to avoid
+  // `prepared statement ... already exists` (Postgres 42P05) on serverless.
+  if (base.includes("pooler.supabase.com") && !hasPgBouncer) {
+    params.push("pgbouncer=true");
+  }
+
+  return params.length > 0 ? `${base}?${params.join("&")}` : base;
 }
 
 const prismaClientSingleton = () => {
