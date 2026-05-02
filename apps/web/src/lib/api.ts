@@ -34,10 +34,10 @@ const publicBaseUrls: Record<ApiArea, string> = {
   marketplace: "https://petlink-marketplace.vercel.app/api/v1",
 };
 
-const configuredBaseUrls: Record<ApiArea, string | undefined> = {
-  auth: process.env.NEXT_PUBLIC_AUTH_API_URL || (process.env.NODE_ENV === 'development' ? localBaseUrls.auth : publicBaseUrls.auth),
-  pets: process.env.NEXT_PUBLIC_PETS_API_URL || (process.env.NODE_ENV === 'development' ? localBaseUrls.pets : publicBaseUrls.pets),
-  marketplace: process.env.NEXT_PUBLIC_MARKETPLACE_API_URL || (process.env.NODE_ENV === 'development' ? localBaseUrls.marketplace : publicBaseUrls.marketplace),
+const envBaseUrlByArea: Record<ApiArea, string | undefined> = {
+  auth: process.env.NEXT_PUBLIC_AUTH_API_URL,
+  pets: process.env.NEXT_PUBLIC_PETS_API_URL,
+  marketplace: process.env.NEXT_PUBLIC_MARKETPLACE_API_URL,
 };
 
 const TOKEN_STORAGE_KEY = "petlink_access_token";
@@ -49,11 +49,31 @@ const PETLINK_AUTH_ANON_KEY = process.env.NEXT_PUBLIC_PETLINK_AUTH_ANON_KEY || "
 
 let refreshInFlight: Promise<string | null> | null = null;
 
+function normalizeApiBaseUrl(input: string): string {
+  const trimmed = input.trim().replace(/\/$/, "");
+  if (trimmed.endsWith("/api/v1")) return trimmed;
+  if (trimmed.endsWith("/api")) return `${trimmed}/v1`;
+  return `${trimmed}/api/v1`;
+}
+
+function isLikelyProtectedPreviewUrl(input: string): boolean {
+  return /-hrichasses-projects\.vercel\.app/i.test(input);
+}
+
 function getBaseUrl(area: ApiArea) {
-  const configured = configuredBaseUrls[area];
+  const configured = envBaseUrlByArea[area];
   const isBrowserLocal = typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname);
-  if (configured?.startsWith("http://localhost") && !isBrowserLocal) return publicBaseUrls[area];
-  return configured;
+
+  if (process.env.NODE_ENV !== "development") {
+    if (!configured) return publicBaseUrls[area];
+    if (configured.startsWith("http://localhost")) return publicBaseUrls[area];
+    if (isLikelyProtectedPreviewUrl(configured)) return publicBaseUrls[area];
+    return normalizeApiBaseUrl(configured);
+  }
+
+  if (!configured) return localBaseUrls[area];
+  if (configured.startsWith("http://localhost") && !isBrowserLocal) return publicBaseUrls[area];
+  return normalizeApiBaseUrl(configured);
 }
 
 export async function getAccessToken() {
