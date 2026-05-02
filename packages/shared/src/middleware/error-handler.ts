@@ -15,12 +15,14 @@ export const withErrorHandler = async <T>(fn: () => RouteHandlerResponse<T>): Pr
       return fail(error.message, error.code, error.details, error.statusCode);
     }
 
-    console.error("[withErrorHandler] Unhandled error:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
+    console.error("[withErrorHandler] Unhandled error:", { message, stack });
 
     return fail(
       "Internal server error.",
       ERROR_CODES.INTERNAL_ERROR,
-      process.env.NODE_ENV === "development" ? String(error) : undefined,
+      process.env.NODE_ENV === "development" ? message : undefined,
       HTTP_STATUS.INTERNAL_SERVER_ERROR
     );
   }
