@@ -114,7 +114,7 @@ export const marketplaceApi = {
       apiRequest<{ queued: boolean; notificationId?: string; providerMessageId?: string; status: "QUEUED" | "SENT" | "FAILED" }>("marketplace", "/notifications", { method: "POST", body: JSON.stringify(payload) }),
   },
   subscriptions: {
-    getMyActive: () => apiRequest<Subscription>("marketplace", "/subscriptions/me"),
+    getMyActive: () => apiRequest<Subscription | null>("marketplace", "/subscriptions/me"),
     create: (payload: { planCode: SubscriptionPlanCode; provider?: PaymentProvider; autoRenew?: boolean }) =>
       apiRequest<Subscription>("marketplace", "/subscriptions", { method: "POST", body: JSON.stringify(payload) }),
     cancel: (id: string) => apiRequest<Subscription>("marketplace", `/subscriptions/${id}/cancel`, { method: "PATCH" }),

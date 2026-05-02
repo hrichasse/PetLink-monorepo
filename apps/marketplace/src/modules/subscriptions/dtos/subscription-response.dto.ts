@@ -14,7 +14,11 @@ export type SubscriptionResponseDto = {
   updatedAt: string;
 };
 
-export const toSubscriptionResponseDto = (subscription: SubscriptionModel): SubscriptionResponseDto => {
+export const toSubscriptionResponseDto = (subscription: SubscriptionModel | null): SubscriptionResponseDto | null => {
+  if (!subscription) {
+    return null;
+  }
+
   return {
     id: subscription.id,
     planCode: subscription.planCode,

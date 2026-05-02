@@ -92,13 +92,8 @@ export const subscriptionsService = {
     return subscriptionsRepository.create(authUserId, payload);
   },
 
-  getMyActiveSubscription: async (authUserId: string): Promise<SubscriptionModel> => {
+  getMyActiveSubscription: async (authUserId: string): Promise<SubscriptionModel | null> => {
     const subscription = await subscriptionsRepository.findActiveByUserId(authUserId);
-
-    if (!subscription) {
-      throw new NotFoundError("Active subscription not found.");
-    }
-
     return subscription;
   },
 
