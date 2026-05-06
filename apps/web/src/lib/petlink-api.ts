@@ -10,6 +10,17 @@ type PetLinkAuthSession = {
   user: { id: string; email?: string; user_metadata?: Record<string, unknown> };
 };
 
+// Thrown when Supabase signup succeeds (200) but email confirmation is required
+// (no access_token in response). Not an error — user was created successfully.
+export class ConfirmationRequiredError extends Error {
+  readonly email: string;
+  constructor(email: string) {
+    super("EMAIL_CONFIRMATION_REQUIRED");
+    this.name = "ConfirmationRequiredError";
+    this.email = email;
+  }
+}
+
 async function authSessionRequest(path: string, payload: Record<string, unknown>) {
   if (!PETLINK_AUTH_ANON_KEY) throw new Error("Falta configurar VITE_PETLINK_AUTH_ANON_KEY para el auth real de PetLink");
   const response = await fetch(`${PETLINK_AUTH_URL}${path}`, {
@@ -17,17 +28,36 @@ async function authSessionRequest(path: string, payload: Record<string, unknown>
     headers: { apikey: PETLINK_AUTH_ANON_KEY, "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const data = await response.json().catch(() => null);
-  if (!response.ok || !data?.access_token) throw new Error(data?.message ?? data?.error_description ?? "No se pudo autenticar en PetLink");
-  setAccessToken(data.access_token);
-  if (data.refresh_token) setRefreshToken(data.refresh_token);
-  return data as PetLinkAuthSession;
+  const data = await response.json().catch(() => null) as Record<string, unknown> | null;
+  if (!response.ok || !data?.access_token) throw new Error((data?.message ?? data?.error_description ?? "No se pudo autenticar en PetLink") as string);
+  setAccessToken(data.access_token as string);
+  if (data.refresh_token) setRefreshToken(data.refresh_token as string);
+  return data as unknown as PetLinkAuthSession;
+}
+
+async function signupRequest(payload: { email: string; password: string; fullName: string; role: "OWNER" | "PROVIDER" }): Promise<PetLinkAuthSession> {
+  if (!PETLINK_AUTH_ANON_KEY) throw new Error("Falta configurar NEXT_PUBLIC_PETLINK_AUTH_ANON_KEY");
+  const response = await fetch(`${PETLINK_AUTH_URL}/signup`, {
+    method: "POST",
+    headers: { apikey: PETLINK_AUTH_ANON_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ email: payload.email, password: payload.password, data: { full_name: payload.fullName, role: payload.role } }),
+  });
+  const data = await response.json().catch(() => null) as Record<string, unknown> | null;
+  if (!response.ok) {
+    throw new Error(((data?.message ?? data?.error_description ?? "No se pudo crear la cuenta") as string));
+  }
+  // Supabase returns 200 without access_token when email confirmation is required
+  if (!data?.access_token) {
+    throw new ConfirmationRequiredError(payload.email);
+  }
+  setAccessToken(data.access_token as string);
+  if (data.refresh_token) setRefreshToken(data.refresh_token as string);
+  return data as unknown as PetLinkAuthSession;
 }
 
 export const authApi = {
   login: (payload: { email: string; password: string }) => authSessionRequest("/token?grant_type=password", payload),
-  signup: (payload: { email: string; password: string; fullName: string; role: "OWNER" | "PROVIDER" }) =>
-    authSessionRequest("/signup", { email: payload.email, password: payload.password, data: { full_name: payload.fullName, role: payload.role } }),
+  signup: (payload: { email: string; password: string; fullName: string; role: "OWNER" | "PROVIDER" }) => signupRequest(payload),
   provisionUser: (payload: { fullName: string; phone?: string | null; city?: string | null; location?: string | null }) =>
     apiRequest<Profile>("auth", "/users", { method: "POST", body: JSON.stringify(payload) }),
   getMe: () => apiRequest<Profile>("auth", "/users/me"),

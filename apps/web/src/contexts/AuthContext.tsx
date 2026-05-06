@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { ApiError, clearAuthTokens, getAccessToken, refreshAccessToken } from "@/lib/api";
-import { authApi } from "@/lib/petlink-api";
+import { authApi, ConfirmationRequiredError } from "@/lib/petlink-api";
 import type { Profile, Role } from "@/lib/petlink-data";
 import { toast } from "sonner";
 
@@ -198,11 +198,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       toast.success("Bienvenido de vuelta a PetLink");
     },
     signUp: async (email, password, fullName, selectedRole) => {
-      const nextSession = await authApi.signup({ email, password, fullName, role: selectedRole });
-      setRoleState(selectedRole);
-      setSession(nextSession);
-      await provisionAndLoad(nextSession, { silent: true });
-      toast.success("Cuenta creada. Revisa tu correo si se requiere confirmación.");
+      try {
+        const nextSession = await authApi.signup({ email, password, fullName, role: selectedRole });
+        setRoleState(selectedRole);
+        setSession(nextSession);
+        await provisionAndLoad(nextSession, { silent: true });
+        toast.success("¡Cuenta creada! Bienvenido a PetLink.");
+      } catch (error) {
+        if (error instanceof ConfirmationRequiredError) {
+          // Signup succeeded in Supabase — user just needs to confirm their email.
+          // Show a friendly success message and rethrow so the form knows not to navigate.
+          toast.success(`Te enviamos un correo a ${error.email}. Confírmalo para ingresar.`);
+          throw error;
+        }
+        throw error;
+      }
     },
     sendMagicLink: async (email) => {
       if (!email) throw new Error("Ingresa tu correo");
