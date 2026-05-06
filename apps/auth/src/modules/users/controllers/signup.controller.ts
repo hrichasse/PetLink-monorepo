@@ -96,5 +96,7 @@ export const signupController = async (request: NextRequest): Promise<NextRespon
     profile: toUserProfileResponseDto(profile),
   };
 
-  return isNew ? createdResponse(responseBody) : ok(responseBody);
+  return isNew
+    ? createdResponse("Usuario registrado exitosamente.", responseBody)
+    : ok("Sesión iniciada.", responseBody);
 };
