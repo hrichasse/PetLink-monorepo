@@ -1,6 +1,7 @@
 import { Prisma, SubscriptionStatus } from "@prisma/client";
 
 import type { PaymentModel } from "@/modules/payments/types";
+import { paymentsRepository } from "@/modules/payments/repositories";
 import { getSubscriptionPlanByCode } from "@/modules/subscriptions/config/plans";
 import type { CreateSubscriptionDto, SubscriptionResponseDto } from "@/modules/subscriptions/dtos";
 import { subscriptionsRepository } from "@/modules/subscriptions/repositories";
@@ -111,16 +112,22 @@ export const subscriptionsService = {
       });
     }
 
-    const data: Prisma.SubscriptionUpdateInput = {
+    const cancellationData: Prisma.SubscriptionUpdateInput = {
       status: SubscriptionStatus.CANCELLED,
       autoRenew: false
     };
 
     if (!subscription.endDate) {
-      data.endDate = new Date();
+      cancellationData.endDate = new Date();
     }
 
-    return subscriptionsRepository.updateById(subscription.id, data);
+    const cancelledSnapshot = await subscriptionsRepository.updateById(subscription.id, cancellationData);
+
+    // Keep payment history consistent: any pending charges are cancelled before deleting subscription.
+    await paymentsRepository.cancelPendingBySubscriptionId(subscription.id);
+    await subscriptionsRepository.deleteById(subscription.id);
+
+    return cancelledSnapshot;
   },
 
   activateOrRefreshSubscriptionFromApprovedPayment: async (payment: PaymentModel): Promise<SubscriptionModel> => {

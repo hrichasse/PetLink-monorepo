@@ -47,6 +47,31 @@ const TBK_DEFAULT_COMMERCE_CODE = "597055555532";
 const TBK_DEFAULT_API_KEY =
   "579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C";
 
+const generateBuyOrder = (): string => {
+  // Webpay buy_order has strict length limits; keep it compact and unique.
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const entropy = randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase();
+  return `PL${timestamp}${entropy}`.slice(0, 26);
+};
+
+const generateSessionId = (userId: string): string => {
+  const compactUser = userId.replace(/-/g, "").slice(0, 20);
+  const suffix = randomUUID().replace(/-/g, "").slice(0, 20);
+  return `U${compactUser}${suffix}`.slice(0, 61);
+};
+
+const getTransbankBaseUrl = (): string => {
+  const isProduction = process.env.TRANSBANK_ENV === "production";
+  return isProduction ? "https://webpay3g.transbank.cl" : "https://webpay3gint.transbank.cl";
+};
+
+const getTransbankCredentials = (): { commerceCode: string; apiKey: string } => {
+  return {
+    commerceCode: process.env.TRANSBANK_COMMERCE_CODE ?? TBK_DEFAULT_COMMERCE_CODE,
+    apiKey: process.env.TRANSBANK_API_KEY ?? TBK_DEFAULT_API_KEY
+  };
+};
+
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export class TransbankProvider implements PaymentProviderAdapter {
@@ -55,12 +80,56 @@ export class TransbankProvider implements PaymentProviderAdapter {
   // ── Checkout ──────────────────────────────────────────────────────────────
 
   public async createCheckout(input: CreateProviderCheckoutInput): Promise<PaymentCheckoutSession> {
+    const returnUrl = input.returnUrl;
+
+    if (!returnUrl) {
+      throw new Error("Missing returnUrl for Transbank checkout.");
+    }
+
+    const buyOrder = generateBuyOrder();
+    const sessionId = generateSessionId(input.userId);
+    const { commerceCode, apiKey } = getTransbankCredentials();
+
+    const createResponse = await fetch(`${getTransbankBaseUrl()}/rswebpaytransaction/api/webpay/v1.2/transactions`, {
+      method: "POST",
+      headers: {
+        "Tbk-Api-Key-Id": commerceCode,
+        "Tbk-Api-Key-Secret": apiKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        buy_order: buyOrder,
+        session_id: sessionId,
+        amount: Math.round(input.amount),
+        return_url: returnUrl
+      })
+    });
+
+    if (!createResponse.ok) {
+      const errorPayload = await createResponse.text().catch(() => "");
+      throw new Error(`Transbank checkout creation failed (${createResponse.status}): ${errorPayload}`);
+    }
+
+    const createPayload = (await createResponse.json()) as {
+      token?: string;
+      url?: string;
+    };
+
+    if (!createPayload.token || !createPayload.url) {
+      throw new Error("Transbank checkout creation returned an invalid response.");
+    }
+
     return {
-      checkoutUrl: `https://webpay3gint.transbank.cl/webpayserver/initTransaction?buyOrder=${input.paymentId}`,
-      providerPaymentId: `tbk_${randomUUID()}`,
-      providerReference: `TBK-${input.paymentId}`,
+      checkoutUrl: `${createPayload.url}?token_ws=${encodeURIComponent(createPayload.token)}`,
+      providerPaymentId: createPayload.token,
+      providerReference: buyOrder,
       metadata: {
-        simulated: true,
+        buyOrder,
+        sessionId,
+        token: createPayload.token,
+        returnUrl,
+        successUrl: input.successUrl,
+        cancelUrl: input.cancelUrl,
         provider: this.provider,
         planCode: input.planCode
       }
@@ -98,13 +167,8 @@ export class TransbankProvider implements PaymentProviderAdapter {
 
     // ── Payment completed: confirm with Transbank API ──────────────────────
     if (tokenWs) {
-      const isProduction = process.env.TRANSBANK_ENV === "production";
-      const baseUrl = isProduction
-        ? "https://webpay3g.transbank.cl"
-        : "https://webpay3gint.transbank.cl";
-      const commerceCode =
-        process.env.TRANSBANK_COMMERCE_CODE ?? TBK_DEFAULT_COMMERCE_CODE;
-      const apiKey = process.env.TRANSBANK_API_KEY ?? TBK_DEFAULT_API_KEY;
+      const baseUrl = getTransbankBaseUrl();
+      const { commerceCode, apiKey } = getTransbankCredentials();
 
       try {
         const res = await fetch(

@@ -10,6 +10,9 @@ export type CreateProviderCheckoutInput = {
   amount: number;
   currency: string;
   description: string;
+  returnUrl?: string | undefined;
+  successUrl?: string | undefined;
+  cancelUrl?: string | undefined;
 };
 
 export type ParsedProviderWebhook = Omit<PaymentWebhookResolution, "status"> & {

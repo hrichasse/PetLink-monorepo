@@ -20,6 +20,35 @@ async function parseBody(request: NextRequest): Promise<unknown> {
   }
 }
 
+const parseUrlOrThrow = (value: string, fieldName: string): URL => {
+  try {
+    return new URL(value);
+  } catch {
+    throw new AppError(`Invalid ${fieldName}.`, {
+      statusCode: HTTP_STATUS.UNPROCESSABLE_ENTITY,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+};
+
+const validateSameOriginRedirect = (value: string | undefined, origin: string | null, fieldName: string): void => {
+  if (!value || !origin) {
+    return;
+  }
+
+  const parsed = parseUrlOrThrow(value, fieldName);
+  if (parsed.origin !== origin) {
+    throw new AppError(`${fieldName} must match request origin.`, {
+      statusCode: HTTP_STATUS.BAD_REQUEST,
+      code: ERROR_CODES.VALIDATION_ERROR,
+      details: {
+        expectedOrigin: origin,
+        receivedOrigin: parsed.origin
+      }
+    });
+  }
+};
+
 export const createCheckoutController = async (request: NextRequest): Promise<NextResponse> => {
   const authUser = await requireAuth(request);
   const body = await parseBody(request);
@@ -33,7 +62,14 @@ export const createCheckoutController = async (request: NextRequest): Promise<Ne
     });
   }
 
-  const result = await paymentsService.createCheckout(authUser.userId, validationResult.data);
+  const requestOrigin = request.headers.get("origin");
+  validateSameOriginRedirect(validationResult.data.successUrl, requestOrigin, "successUrl");
+  validateSameOriginRedirect(validationResult.data.cancelUrl, requestOrigin, "cancelUrl");
+
+  const transbankReturnUrl = new URL("/api/v1/payments/transbank/return", request.nextUrl.origin).toString();
+  const result = await paymentsService.createCheckout(authUser.userId, validationResult.data, {
+    transbankReturnUrl
+  });
 
   return created("Checkout created successfully.", toPaymentCheckoutResponseDto(result.payment, result.checkout));
 };

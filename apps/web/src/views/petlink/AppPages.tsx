@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type UseFormRegisterReturn } from "react-hook-form";
@@ -877,6 +877,7 @@ export function ProfilePage() {
 }
 export function SubscriptionsPage() {
   const { loading, session } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const handleError = useApiError();
   const [provider, setProvider] = useState<"MERCADOPAGO" | "TRANSBANK">("MERCADOPAGO");
@@ -911,23 +912,32 @@ export function SubscriptionsPage() {
   });
 
   const checkout = useMutation({
-    mutationFn: () => marketplaceApi.payments.checkout({ planCode: selectedPlan, provider, autoRenew: true }),
+    mutationFn: () => {
+      const subscriptionsUrl = `${window.location.origin}/subscriptions`;
+      return marketplaceApi.payments.checkout({
+        planCode: selectedPlan,
+        provider,
+        autoRenew: true,
+        successUrl: subscriptionsUrl,
+        cancelUrl: subscriptionsUrl
+      });
+    },
     onSuccess: async (result) => {
       if (result.checkoutUrl) {
+        if (provider === "TRANSBANK") {
+          window.location.assign(result.checkoutUrl);
+          return;
+        }
+
         window.open(result.checkoutUrl, "_blank", "noopener,noreferrer");
       }
-      await queryClient.invalidateQueries({ queryKey: ["my-payments"] });
-      toast.success("Checkout creado. Puedes confirmar el pago cuando lo completes.");
-    },
-    onError: handleError
-  });
 
-  const confirmPayment = useMutation({
-    mutationFn: (paymentId: string) => marketplaceApi.payments.confirm(paymentId, { status: "APPROVED", paymentMethod: provider }),
-    onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["my-payments"] });
-      await queryClient.invalidateQueries({ queryKey: ["my-subscription"] });
-      toast.success("Pago confirmado correctamente");
+      if (provider === "TRANSBANK") {
+        toast.success("Redirigiendo a Webpay para completar el pago...");
+      } else {
+        toast.success("Checkout creado.");
+      }
     },
     onError: handleError
   });
@@ -936,12 +946,36 @@ export function SubscriptionsPage() {
     mutationFn: (id: string) => marketplaceApi.subscriptions.cancel(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["my-subscription"] });
-      toast.success("Suscripción cancelada");
+      await queryClient.invalidateQueries({ queryKey: ["my-payments"] });
+      toast.success("Suscripción cancelada y eliminada correctamente");
     },
     onError: handleError
   });
 
-  return <Page title="Planes y pagos"><section className="rounded-card border bg-card p-6 shadow-soft"><h2 className="text-xl font-black">Tu suscripción</h2>{loading ? <p className="mt-3 text-sm text-muted-foreground">Validando sesión...</p> : activeSubscription.isLoading ? <p className="mt-3 text-sm text-muted-foreground">Cargando suscripción...</p> : activeSubscription.error ? <p className="mt-3 text-sm text-destructive">No se pudo cargar la suscripción activa.</p> : <div className="mt-4 flex flex-wrap items-center gap-3"><span className="rounded-full bg-primary-soft px-3 py-1 text-xs font-bold text-primary">Plan: {activeSubscription.data?.planCode ?? "FREE"}</span><span className="rounded-full bg-secondary px-3 py-1 text-xs font-bold text-secondary-foreground">Estado: {activeSubscription.data?.status ?? "SIN SUSCRIPCIÓN"}</span>{activeSubscription.data ? <Button variant="outline" onClick={() => cancelSubscription.mutate(activeSubscription.data.id)} disabled={cancelSubscription.isPending}>{cancelSubscription.isPending ? "Cancelando..." : "Cancelar plan"}</Button> : null}</div>}</section><section className="mt-6 rounded-card border bg-card p-6 shadow-soft"><h2 className="text-xl font-black">Elegir plan</h2><div className="mt-4 grid gap-4 md:grid-cols-3">{plans.map((plan) => <button key={plan.code} className={`rounded-card border p-4 text-left transition-colors ${selectedPlan === plan.code ? "border-primary bg-primary-soft" : "hover:bg-accent"}`} onClick={() => setSelectedPlan(plan.code)}><p className="text-sm font-black">{plan.name}</p><p className="mt-1 text-lg font-black">${plan.price.toLocaleString("es-CL")} CLP</p><ul className="mt-3 list-disc space-y-1 pl-4 text-xs text-muted-foreground">{plan.features.map((feature) => <li key={feature}>{feature}</li>)}</ul></button>)}</div><div className="mt-4 flex flex-wrap items-center gap-3"><label className="text-sm font-bold">Proveedor</label><select className="input-shell w-56" value={provider} onChange={(event) => setProvider(event.target.value as "MERCADOPAGO" | "TRANSBANK")}><option value="MERCADOPAGO">MercadoPago</option><option value="TRANSBANK">Transbank</option></select><Button variant="hero" disabled={checkout.isPending || !queryEnabled} onClick={() => checkout.mutate()}>{checkout.isPending ? "Creando checkout..." : "Ir a checkout"}</Button></div></section><section className="mt-6 rounded-card border bg-card p-6 shadow-soft"><h2 className="text-xl font-black">Mis pagos</h2>{loading ? <p className="mt-3 text-sm text-muted-foreground">Validando sesión...</p> : myPayments.isLoading ? <p className="mt-3 text-sm text-muted-foreground">Cargando pagos...</p> : myPayments.error ? <p className="mt-3 text-sm text-destructive">No se pudieron cargar tus pagos.</p> : myPayments.data?.length ? <div className="mt-4 space-y-3">{myPayments.data.map((payment) => <div key={payment.id} className="flex flex-wrap items-center justify-between gap-3 rounded-card border p-3"><div><p className="font-bold">{payment.description}</p><p className="text-xs text-muted-foreground">{payment.provider} · {new Date(payment.createdAt).toLocaleString("es-CL")}</p></div><div className="flex items-center gap-2"><span className="rounded-full bg-secondary px-3 py-1 text-xs font-bold text-secondary-foreground">{payment.status}</span><span className="text-sm font-bold">${Number(payment.amount).toLocaleString("es-CL")} {payment.currency}</span>{payment.status === "PENDING" ? <Button size="sm" variant="outline" onClick={() => confirmPayment.mutate(payment.id)} disabled={confirmPayment.isPending}>{confirmPayment.isPending ? "Confirmando..." : "Confirmar"}</Button> : null}</div></div>)}</div> : <EmptyState title="Sin pagos" description="Aún no tienes pagos registrados." />}</section></Page>;
+  useEffect(() => {
+    const paymentStatus = searchParams.get("paymentStatus");
+    if (!paymentStatus) {
+      return;
+    }
+
+    if (paymentStatus === "approved") {
+      toast.success("Pago completado. Bienvenido a tu nuevo plan.");
+      void queryClient.invalidateQueries({ queryKey: ["my-subscription"] });
+      void queryClient.invalidateQueries({ queryKey: ["my-payments"] });
+    } else if (paymentStatus === "cancelled") {
+      toast.warning("Pago cancelado. Puedes intentarlo nuevamente cuando quieras.");
+    } else {
+      toast.error("No se pudo validar el pago en Webpay. Intenta de nuevo.");
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("paymentStatus");
+    nextParams.delete("paymentId");
+    nextParams.delete("planCode");
+    setSearchParams(nextParams, { replace: true });
+  }, [queryClient, searchParams, setSearchParams]);
+
+  return <Page title="Planes y pagos"><section className="rounded-card border bg-card p-6 shadow-soft"><h2 className="text-xl font-black">Tu suscripción</h2>{loading ? <p className="mt-3 text-sm text-muted-foreground">Validando sesión...</p> : activeSubscription.isLoading ? <p className="mt-3 text-sm text-muted-foreground">Cargando suscripción...</p> : activeSubscription.error ? <p className="mt-3 text-sm text-destructive">No se pudo cargar la suscripción activa.</p> : <div className="mt-4 flex flex-wrap items-center gap-3"><span className="rounded-full bg-primary-soft px-3 py-1 text-xs font-bold text-primary">Plan: {activeSubscription.data?.planCode ?? "FREE"}</span><span className="rounded-full bg-secondary px-3 py-1 text-xs font-bold text-secondary-foreground">Estado: {activeSubscription.data?.status ?? "SIN SUSCRIPCIÓN"}</span>{activeSubscription.data ? <Button variant="outline" onClick={() => cancelSubscription.mutate(activeSubscription.data.id)} disabled={cancelSubscription.isPending}>{cancelSubscription.isPending ? "Cancelando..." : "Cancelar plan"}</Button> : null}</div>}</section><section className="mt-6 rounded-card border bg-card p-6 shadow-soft"><h2 className="text-xl font-black">Elegir plan</h2><div className="mt-4 grid gap-4 md:grid-cols-3">{plans.map((plan) => <button key={plan.code} className={`rounded-card border p-4 text-left transition-colors ${selectedPlan === plan.code ? "border-primary bg-primary-soft" : "hover:bg-accent"}`} onClick={() => setSelectedPlan(plan.code)}><p className="text-sm font-black">{plan.name}</p><p className="mt-1 text-lg font-black">${plan.price.toLocaleString("es-CL")} CLP</p><ul className="mt-3 list-disc space-y-1 pl-4 text-xs text-muted-foreground">{plan.features.map((feature) => <li key={feature}>{feature}</li>)}</ul></button>)}</div><div className="mt-6"><p className="mb-3 text-sm font-bold">Método de pago</p><div className="grid max-w-xs grid-cols-2 gap-3"><button type="button" onClick={() => setProvider("MERCADOPAGO")} className={`flex flex-col items-center gap-2 rounded-card border-2 p-4 transition-colors ${provider === "MERCADOPAGO" ? "border-primary bg-primary-soft" : "border-border hover:bg-accent"}`}><img src="/payments/mercado-pago-clean.png" alt="MercadoPago" className="h-8 w-auto object-contain" /><span className="text-xs font-semibold">MercadoPago</span></button><button type="button" onClick={() => setProvider("TRANSBANK")} className={`flex flex-col items-center gap-2 rounded-card border-2 p-4 transition-colors ${provider === "TRANSBANK" ? "border-primary bg-primary-soft" : "border-border hover:bg-accent"}`}><img src="/payments/webpay-plus-redcompra-clean.png" alt="Webpay Plus" className="h-8 w-auto object-contain" /><span className="text-xs font-semibold">Webpay Plus</span></button></div><div className="mt-4"><Button variant="hero" disabled={checkout.isPending || !queryEnabled} onClick={() => checkout.mutate()}>{checkout.isPending ? "Preparando pago..." : provider === "TRANSBANK" ? "Pagar con Webpay" : "Ir a checkout"}</Button></div></div></section><section className="mt-6 rounded-card border bg-card p-6 shadow-soft"><h2 className="text-xl font-black">Mis pagos</h2>{loading ? <p className="mt-3 text-sm text-muted-foreground">Validando sesión...</p> : myPayments.isLoading ? <p className="mt-3 text-sm text-muted-foreground">Cargando pagos...</p> : myPayments.error ? <p className="mt-3 text-sm text-destructive">No se pudieron cargar tus pagos.</p> : myPayments.data?.length ? <div className="mt-4 space-y-3">{myPayments.data.map((payment) => <div key={payment.id} className="flex flex-wrap items-center justify-between gap-3 rounded-card border p-3"><div><p className="font-bold">{payment.description}</p><p className="text-xs text-muted-foreground">{payment.provider} · {new Date(payment.createdAt).toLocaleString("es-CL")}</p></div><div className="flex items-center gap-2"><span className="rounded-full bg-secondary px-3 py-1 text-xs font-bold text-secondary-foreground">{payment.status}</span><span className="text-sm font-bold">${Number(payment.amount).toLocaleString("es-CL")} {payment.currency}</span></div></div>)}</div> : <EmptyState title="Sin pagos" description="Aún no tienes pagos registrados." />}</section></Page>;
 }
 export function NotificationsPage() { return <Page title="Notificaciones"><EmptyState title="Todo tranquilo" description="El backend actual permite crear notificaciones; no incluye endpoint de listado para mostrarlas aquí." /></Page>; }
 export function BookingDetailPage() { const { id } = useParams(); const { data, isLoading, error } = useQuery({ queryKey: ["bookings", id], queryFn: () => marketplaceApi.bookings.get(id ?? ""), enabled: Boolean(id) }); return <Page title="Detalle de reserva">{isLoading ? <SkeletonGrid /> : error || !data ? <EmptyState title="Reserva no encontrada" description={error instanceof Error ? error.message : "No pudimos cargar el detalle."} /> : <BookingCard booking={data} />}</Page>; }
