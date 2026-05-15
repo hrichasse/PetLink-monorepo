@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "isolatedModules": false,
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@petlink/shared": ["../../packages/shared/src/index.ts"],
+      "@petlink/database": ["../../packages/database/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

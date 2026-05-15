@@ -20,9 +20,18 @@
     "prisma:generate": "turbo run prisma:generate",
     "prisma:migrate": "env -u DATABASE_URL -u DIRECT_URL npx prisma migrate dev --schema=packages/database/prisma/schema.prisma",
     "prisma:studio": "env -u DATABASE_URL -u DIRECT_URL npx prisma studio --schema=packages/database/prisma/schema.prisma",
-    "prisma:status": "env -u DATABASE_URL -u DIRECT_URL npx prisma migrate status --schema=packages/database/prisma/schema.prisma"
+    "prisma:status": "env -u DATABASE_URL -u DIRECT_URL npx prisma migrate status --schema=packages/database/prisma/schema.prisma",
+    "test": "turbo run test"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jest": "^29.5.14",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "ts-jest": "^29.3.4",
+    "ts-node": "^10.9.2",
     "turbo": "^2.5.3",
     "typescript": "^5.8.2"
   },

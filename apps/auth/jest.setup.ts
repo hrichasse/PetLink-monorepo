@@ -1,0 +1,7 @@
+// Dummy environment variables required by @petlink/shared (Supabase lazy clients)
+// These are never used in backend tests because Supabase clients are mocked.
+process.env["NEXT_PUBLIC_SUPABASE_URL"] = "https://test.supabase.co";
+process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"] = "test-anon-key";
+process.env["SUPABASE_SERVICE_ROLE_KEY"] = "test-service-role-key";
+process.env["DATABASE_URL"] = "postgresql://postgres:test@localhost:5432/test";
+process.env["DIRECT_URL"] = "postgresql://postgres:test@localhost:5432/test";
