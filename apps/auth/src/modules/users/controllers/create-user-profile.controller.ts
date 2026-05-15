@@ -52,7 +52,13 @@ export const createUserProfileController = async (request: NextRequest): Promise
   function isUserRole(value: string | undefined): value is "OWNER" | "PROVIDER" | "ADMIN" {
     return value === "OWNER" || value === "PROVIDER" || value === "ADMIN";
   }
-  if (isUserRole(authUser.role)) payload.role = authUser.role;
+  // For Google/OAuth users, role may not be set in user_metadata yet.
+  // Default to OWNER if not provided. Users can change role later in settings.
+  if (isUserRole(authUser.role)) {
+    payload.role = authUser.role;
+  } else {
+    payload.role = "OWNER"; // Default role for OAuth signups
+  }
 
   const { profile, isNew } = await usersService.createOrGetProfile(
     authUser.userId,

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,6 +7,8 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppShell } from "@/components/petlink/Layout";
 import { LandingPage } from "@/views/petlink/Landing";
 import { LoginPage, RegisterPage } from "@/views/petlink/AuthPages";
+import { AuthCallbackPage } from "@/views/petlink/AuthCallback";
+import { ProfileOnboardingPage } from "@/views/petlink/ProfileOnboarding";
 import { AnnouncementsPage, BookingDetailPage, BookingsPage, DashboardPage, MatchPage, NotificationsPage, PetDetailPage, PetFormPage, PetsPage, ProfilePage, ProviderServiceFormPage, ProviderServicesPage, ServicesPage, ServiceDetailPage, SubscriptionsPage, VetsPage } from "@/views/petlink/AppPages";
 import { ApiError } from "@/lib/api";
 import NotFound from "./views/NotFound";
@@ -38,9 +40,15 @@ const queryClient = new QueryClient({
 });
 
 function ProtectedRoutes() {
-  const { user, loading } = useAuth();
+  const { user, loading, profile } = useAuth();
+  const location = useLocation();
+  const isOnboardingRoute = location.pathname === "/onboarding/profile";
+  const isProfileComplete = Boolean(profile?.fullName?.trim() && profile?.city?.trim() && profile?.location?.trim());
+
   if (loading) return <div className="grid min-h-screen place-items-center bg-background text-foreground">Cargando PetLink…</div>;
   if (!user) return <Navigate to="/login" replace />;
+  if (!isProfileComplete && !isOnboardingRoute) return <Navigate to="/onboarding/profile" replace />;
+  if (isProfileComplete && isOnboardingRoute) return <Navigate to="/dashboard" replace />;
   return <AppShell />;
 }
 
@@ -55,7 +63,9 @@ const App = () => (
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/auth/callback" element={<AuthCallbackPage />} />
             <Route element={<ProtectedRoutes />}>
+              <Route path="/onboarding/profile" element={<ProfileOnboardingPage />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/pets" element={<PetsPage />} />
               <Route path="/pets/new" element={<PetFormPage />} />

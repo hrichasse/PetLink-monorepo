@@ -5,6 +5,15 @@ import { AuthProvider, useAuth } from "../contexts/AuthContext";
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
+jest.mock("../lib/supabase-browser", () => ({
+  getWebSupabaseClient: jest.fn(() => ({
+    auth: {
+      signInWithOAuth: jest.fn(),
+      exchangeCodeForSession: jest.fn(),
+    },
+  })),
+}));
+
 jest.mock("../lib/api", () => ({
   ApiError: class ApiError extends Error {
     status: number;
