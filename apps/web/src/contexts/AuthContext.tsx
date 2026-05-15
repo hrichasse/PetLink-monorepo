@@ -1,6 +1,9 @@
+"use client";
+
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { ApiError, clearAuthTokens, getAccessToken, refreshAccessToken } from "@/lib/api";
 import { authApi } from "@/lib/petlink-api";
+import { getWebSupabaseClient } from "@/lib/supabase-browser";
 import type { Profile, Role } from "@/lib/petlink-data";
 import { toast } from "sonner";
 
@@ -201,15 +204,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const nextSession = await authApi.signup({ email, password, fullName, role: selectedRole });
       setRoleState(selectedRole);
       setSession(nextSession);
-      await provisionAndLoad(nextSession, { silent: true });
-      toast.success("¡Cuenta creada! Bienvenido a PetLink.");
+      // Don't provision here - let the user complete onboarding first
+      toast.success("¡Cuenta creada! Ahora completa tu perfil.");
     },
     sendMagicLink: async (email) => {
       if (!email) throw new Error("Ingresa tu correo");
       toast.error("Magic link no está conectado en el auth real de PetLink");
     },
     signInWithGoogle: async () => {
-      toast.error("Google no está conectado en el auth real de PetLink");
+      try {
+        // Only execute on client side
+        if (typeof window === "undefined") {
+          throw new Error("Sign in with Google is only available on the client");
+        }
+        
+        const client = getWebSupabaseClient();
+        // Force popup/window mode for Google OAuth
+        const { error } = await client.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`,
+            skipBrowserRedirect: false,
+            queryParams: {
+              access_type: "offline",
+              prompt: "consent", // Force Google account selection
+            },
+          },
+        });
+        if (error) throw error;
+      } catch (error) {
+        console.error("Google sign-in error:", error);
+        throw new Error(error instanceof Error ? error.message : "No se pudo iniciar sesión con Google");
+      }
     },
     signOut: async () => {
       await signOutSilently();

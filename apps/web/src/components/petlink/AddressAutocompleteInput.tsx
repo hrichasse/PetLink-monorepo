@@ -114,7 +114,6 @@ export function AddressAutocompleteInput({ label, value, onChange, onSelect, pla
         required={required}
       />
       {apiKey && !isReady ? <span className="mt-1 block text-xs font-normal text-muted-foreground">Cargando autocompletado de direcciones...</span> : null}
-      {!apiKey ? <span className="mt-1 block text-xs font-normal text-muted-foreground">Sin API key de Google Maps: puedes ingresar la dirección manualmente.</span> : null}
     </label>
   );
 }
