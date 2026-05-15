@@ -1,4 +1,6 @@
 {
   "typescript.tsdk": "node_modules/typescript/lib",
-  "typescript.enablePromptUseWorkspaceTsdk": false
+  "typescript.enablePromptUseWorkspaceTsdk": false,
+  "jest.jestCommandLine": "npx jest --config jest.config.ts",
+  "jest.rootPath": "."
 }

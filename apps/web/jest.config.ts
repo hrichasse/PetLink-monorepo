@@ -11,7 +11,7 @@ const config: Config = {
     "\\.(css|less|scss|sass)$": "<rootDir>/src/__mocks__/styleMock.ts",
   },
   transform: {
-    "^.+\\.tsx?$": ["ts-jest", { tsconfig: "./tsconfig.test.json" }],
+    "^.+\\.tsx?$": ["ts-jest", { tsconfig: "<rootDir>/tsconfig.test.json" }],
   },
 };
 
