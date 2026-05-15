@@ -12,13 +12,23 @@ jest.mock("../modules/subscriptions/repositories/subscriptions.repository", () =
     create: jest.fn(),
     findById: jest.fn(),
     findByIdForUser: jest.fn(),
+    updateById: jest.fn(),
+    deleteById: jest.fn(),
+  },
+}));
+
+jest.mock("../modules/payments/repositories", () => ({
+  paymentsRepository: {
+    cancelPendingBySubscriptionId: jest.fn(),
   },
 }));
 
 import { subscriptionsService } from "../modules/subscriptions/services/subscriptions.service";
 import { subscriptionsRepository } from "../modules/subscriptions/repositories/subscriptions.repository";
+import { paymentsRepository } from "../modules/payments/repositories";
 
 const mockRepo = subscriptionsRepository as jest.Mocked<typeof subscriptionsRepository>;
+const mockPaymentsRepo = paymentsRepository as jest.Mocked<typeof paymentsRepository>;
 
 const BASE_SUBSCRIPTION = {
   id: "sub-uuid",
@@ -123,5 +133,43 @@ describe("subscriptionsService.getMyActiveSubscription()", () => {
 
     const result = await subscriptionsService.getMyActiveSubscription("user-uuid");
     expect(result).toEqual(active);
+  });
+});
+
+describe("subscriptionsService.cancelSubscriptionForUser()", () => {
+  it("throws NotFoundError when subscription does not belong to user", async () => {
+    mockRepo.findByIdForUser.mockResolvedValueOnce(null);
+
+    await expect(
+      subscriptionsService.cancelSubscriptionForUser("user-uuid", "sub-uuid")
+    ).rejects.toMatchObject({
+      statusCode: HTTP_STATUS.NOT_FOUND,
+      code: "RESOURCE_NOT_FOUND",
+    });
+  });
+
+  it("cancels pending payments, deletes the subscription and returns cancelled snapshot", async () => {
+    const active = { ...BASE_SUBSCRIPTION, status: "ACTIVE" as const };
+    const cancelled = {
+      ...active,
+      status: "CANCELLED" as const,
+      autoRenew: false,
+      endDate: new Date("2026-01-10"),
+    };
+
+    mockRepo.findByIdForUser.mockResolvedValueOnce(active);
+    mockRepo.updateById.mockResolvedValueOnce(cancelled);
+    mockPaymentsRepo.cancelPendingBySubscriptionId.mockResolvedValueOnce(1);
+    mockRepo.deleteById.mockResolvedValueOnce(cancelled);
+
+    const result = await subscriptionsService.cancelSubscriptionForUser("user-uuid", "sub-uuid");
+
+    expect(mockRepo.updateById).toHaveBeenCalledWith(
+      "sub-uuid",
+      expect.objectContaining({ status: "CANCELLED", autoRenew: false })
+    );
+    expect(mockPaymentsRepo.cancelPendingBySubscriptionId).toHaveBeenCalledWith("sub-uuid");
+    expect(mockRepo.deleteById).toHaveBeenCalledWith("sub-uuid");
+    expect(result.status).toBe("CANCELLED");
   });
 });

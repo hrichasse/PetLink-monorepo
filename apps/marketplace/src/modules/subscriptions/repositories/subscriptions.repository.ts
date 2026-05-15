@@ -92,6 +92,12 @@ export const subscriptionsRepository = {
     });
   },
 
+  deleteById: (id: string): Promise<SubscriptionModel> => {
+    return prisma.subscription.delete({
+      where: { id }
+    });
+  },
+
   findLatestByUserId: (userId: string): Promise<Subscription | null> => {
     return prisma.subscription.findFirst({
       where: { userId },

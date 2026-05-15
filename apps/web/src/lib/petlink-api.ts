@@ -135,7 +135,14 @@ export const marketplaceApi = {
     cancel: (id: string) => apiRequest<Subscription>("marketplace", `/subscriptions/${id}/cancel`, { method: "PATCH" }),
   },
   payments: {
-    checkout: (payload: { planCode: SubscriptionPlanCode; provider: PaymentProvider; subscriptionId?: string; autoRenew?: boolean }) =>
+    checkout: (payload: {
+      planCode: SubscriptionPlanCode;
+      provider: PaymentProvider;
+      subscriptionId?: string;
+      autoRenew?: boolean;
+      successUrl?: string;
+      cancelUrl?: string;
+    }) =>
       apiRequest<PaymentCheckout>("marketplace", "/payments/checkout", { method: "POST", body: JSON.stringify(payload) }),
     confirm: (id: string, payload: { status: "APPROVED" | "REJECTED" | "CANCELLED" | "FAILED"; providerPaymentId?: string | null; providerReference?: string | null; paymentMethod?: string | null; metadata?: Record<string, unknown> }) =>
       apiRequest<Payment>("marketplace", `/payments/${id}/confirm`, { method: "POST", body: JSON.stringify(payload) }),

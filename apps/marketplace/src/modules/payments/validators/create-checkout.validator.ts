@@ -8,6 +8,8 @@ export const createCheckoutSchema = z
     planCode: z.enum(SUBSCRIPTION_PLAN_CODES),
     provider: z.nativeEnum(PaymentProvider),
     subscriptionId: z.string().uuid().optional(),
-    autoRenew: z.boolean().optional()
+    autoRenew: z.boolean().optional(),
+    successUrl: z.string().url().optional(),
+    cancelUrl: z.string().url().optional()
   })
   .strict();

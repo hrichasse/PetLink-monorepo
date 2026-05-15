@@ -137,5 +137,19 @@ export const paymentsRepository = {
         processedAt: new Date()
       }
     });
+  },
+
+  cancelPendingBySubscriptionId: async (subscriptionId: string): Promise<number> => {
+    const result = await prisma.payment.updateMany({
+      where: {
+        subscriptionId,
+        status: "PENDING"
+      },
+      data: {
+        status: "CANCELLED"
+      }
+    });
+
+    return result.count;
   }
 };

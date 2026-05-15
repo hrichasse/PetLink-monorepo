@@ -7,4 +7,6 @@ export type CreateCheckoutDto = {
   provider: PaymentProvider;
   subscriptionId?: string | undefined;
   autoRenew?: boolean | undefined;
+  successUrl?: string | undefined;
+  cancelUrl?: string | undefined;
 };

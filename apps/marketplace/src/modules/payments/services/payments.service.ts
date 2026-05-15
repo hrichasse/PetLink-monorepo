@@ -87,7 +87,10 @@ const buildPaymentUpdateInput = (payload: {
 export const paymentsService = {
   createCheckout: async (
     authUserId: string,
-    payload: CreateCheckoutDto
+    payload: CreateCheckoutDto,
+    context?: {
+      transbankReturnUrl?: string | undefined;
+    }
   ): Promise<{ payment: PaymentModel; checkout: PaymentCheckoutSession }> => {
     const plan = resolvePlanOrThrow(payload.planCode);
 
@@ -126,7 +129,10 @@ export const paymentsService = {
       planCode: plan.code,
       amount: plan.price,
       currency: plan.currency,
-      description: `${plan.name} subscription`
+      description: `${plan.name} subscription`,
+      returnUrl: payload.provider === "TRANSBANK" ? context?.transbankReturnUrl : undefined,
+      successUrl: payload.successUrl,
+      cancelUrl: payload.cancelUrl
     });
 
     const updatedPayment = await paymentsRepository.updateById(
