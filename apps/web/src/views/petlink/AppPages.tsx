@@ -19,7 +19,7 @@ import { toast } from "sonner";
 
 const petSchema = z.object({ name: z.string().min(2, "Nombre requerido"), species: z.string().min(2, "Especie requerida"), breed: z.string().min(2, "Raza requerida"), age: z.coerce.number().int().min(0).max(100), weight: z.coerce.number().positive("Peso requerido"), sex: z.enum(["MALE", "FEMALE"]), description: z.string().max(400).optional(), isSterilized: z.boolean().optional(), isVaccinated: z.boolean().optional() });
 const profileSchema = z.object({ fullName: z.string().min(2, "Ingresa tu nombre").max(120), phone: z.string().max(30).optional(), city: z.string().max(80).optional(), location: z.string().max(255).optional() });
-const serviceSchema = z.object({ type: z.string().min(2, "Tipo requerido"), title: z.string().min(3, "Título requerido").max(160), description: z.string().min(10, "Describe el servicio").max(2000), price: z.coerce.number().positive("Precio requerido"), location: z.string().min(2, "Ubicación requerida"), availabilityNotes: z.string().optional(), isActive: z.boolean().optional() });
+const serviceSchema = z.object({ type: z.enum(["WALKING", "DAYCARE", "BOARDING", "TRAINING", "GROOMING", "PET_SITTING", "VETERINARY", "ONLINE_STORE", "SPA", "PET_TAXI", "OTHER"], { message: "Selecciona un tipo" }), title: z.string().min(3, "Título requerido").max(160), description: z.string().min(10, "Describe el servicio").max(2000), price: z.coerce.number().positive("Precio requerido").max(1000000), location: z.string().min(2, "Ubicación requerida"), availabilityNotes: z.string().optional(), isActive: z.boolean().optional() });
 const bookingSchema = z.object({ petId: z.string().min(1, "Selecciona una mascota"), bookingDate: z.string().min(1, "Selecciona una fecha"), durationHours: z.coerce.number().int().positive().optional(), notes: z.string().optional() });
 
 type PetValues = z.infer<typeof petSchema>;
@@ -28,13 +28,84 @@ type ServiceValues = z.infer<typeof serviceSchema>;
 type BookingValues = z.infer<typeof bookingSchema>;
 const SERVICE_TYPE_OPTIONS = [
   { value: "WALKING", label: "Paseo de mascotas" },
-  { value: "DAYCARE", label: "Guardería" },
-  { value: "BOARDING", label: "Hotelería / Hospedaje" },
-  { value: "TRAINING", label: "Adiestramiento" },
+  { value: "DAYCARE", label: "Hospedaje diario" },
+  { value: "BOARDING", label: "Hospedaje" },
+  { value: "TRAINING", label: "Entrenamiento" },
   { value: "GROOMING", label: "Peluquería / Grooming" },
   { value: "PET_SITTING", label: "Cuidado a domicilio" },
+  { value: "VETERINARY", label: "Veterinaria" },
+  { value: "ONLINE_STORE", label: "Tienda en línea" },
+  { value: "SPA", label: "Spa" },
+  { value: "PET_TAXI", label: "Transporte de mascotas" },
   { value: "OTHER", label: "Otros servicios" }
 ] as const;
+
+const SERVICE_DAY_OPTIONS = [
+  { value: "Lunes", label: "Lunes" },
+  { value: "Martes", label: "Martes" },
+  { value: "Miercoles", label: "Miércoles" },
+  { value: "Jueves", label: "Jueves" },
+  { value: "Viernes", label: "Viernes" },
+  { value: "Sabado", label: "Sábado" },
+  { value: "Domingo", label: "Domingo" }
+] as const;
+
+function parsePriceInput(value: string): number {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return 0;
+  return Number.parseInt(digits, 10);
+}
+
+function formatPriceCLP(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return "";
+  return new Intl.NumberFormat("es-CL").format(Math.trunc(value));
+}
+
+function buildAvailabilityNotes(days: string[], startTime: string, endTime: string, notes: string): string | null {
+  const parts: string[] = [];
+  if (days.length > 0) {
+    parts.push(`Dias: ${days.join(", ")}`);
+  }
+  if (startTime && endTime) {
+    parts.push(`Horario: ${startTime} - ${endTime}`);
+  }
+  const trimmedNotes = notes.trim();
+  if (trimmedNotes) {
+    parts.push(`Notas: ${trimmedNotes}`);
+  }
+  if (parts.length === 0) {
+    return null;
+  }
+  return parts.join(" | ");
+}
+
+function parseAvailabilityNotes(raw: string | null | undefined): { days: string[]; startTime: string; endTime: string; notes: string } {
+  if (!raw) {
+    return { days: [], startTime: "09:00", endTime: "18:00", notes: "" };
+  }
+
+  const parts = raw.split("|").map((part) => part.trim());
+  const daysPart = parts.find((part) => part.toLowerCase().startsWith("dias:"));
+  const schedulePart = parts.find((part) => part.toLowerCase().startsWith("horario:"));
+  const notesPart = parts.find((part) => part.toLowerCase().startsWith("notas:"));
+
+  const days = daysPart
+    ? daysPart.replace(/^[Dd]ias:\s*/, "").split(",").map((day) => day.trim()).filter(Boolean)
+    : [];
+
+  let startTime = "09:00";
+  let endTime = "18:00";
+  if (schedulePart) {
+    const schedule = schedulePart.replace(/^[Hh]orario:\s*/, "");
+    const [start, end] = schedule.split("-").map((item) => item.trim());
+    if (start) startTime = start;
+    if (end) endTime = end;
+  }
+
+  const notes = notesPart ? notesPart.replace(/^[Nn]otas:\s*/, "") : raw;
+
+  return { days, startTime, endTime, notes };
+}
 
 type MatchFormValues = {
   useRegisteredPet: boolean;
@@ -819,7 +890,194 @@ export function VetsPage() {
 }
 
 export function ProviderServicesPage() { const { profile } = useAuth(); const { data = [], isLoading, error } = useQuery({ queryKey: ["provider-services", profile?.userId], queryFn: () => marketplaceApi.services.list({ providerId: profile?.userId }), enabled: Boolean(profile?.userId) }); return <Page title="Mis servicios" action={<Button asChild variant="hero"><Link to="/my-services/new"><Plus />Nuevo</Link></Button>}>{isLoading ? <SkeletonGrid /> : error ? <EmptyState title="No se pudieron cargar tus servicios" description={error instanceof Error ? error.message : "Intenta nuevamente."} /> : data.length ? <div className="grid gap-5 md:grid-cols-3">{data.map((service) => <Link key={service.id} to={`/my-services/${service.id}/edit`}><ServiceCard service={service} /></Link>)}</div> : <EmptyState title="Aún no tienes servicios" description="Crea tu primer servicio para recibir reservas." />}</Page>; }
-export function ProviderServiceFormPage() { const { id } = useParams(); const navigate = useNavigate(); const queryClient = useQueryClient(); const handleError = useApiError(); const editing = Boolean(id); const { data: service } = useQuery({ queryKey: ["services", id], queryFn: () => marketplaceApi.services.get(id ?? ""), enabled: editing }); const form = useForm<ServiceValues>({ resolver: zodResolver(serviceSchema), values: service ? { type: service.type, title: service.title, description: service.description, price: service.price, location: service.location, availabilityNotes: service.availabilityNotes ?? "", isActive: service.isActive } : { type: "", title: "", description: "", price: 1, location: "", availabilityNotes: "", isActive: true } }); const currentLocation = form.watch("location"); const mutation = useMutation({ mutationFn: (values: ServiceValues) => editing ? marketplaceApi.services.update(id ?? "", { type: values.type, title: values.title, description: values.description, price: values.price, location: values.location, availabilityNotes: values.availabilityNotes || null, isActive: values.isActive }) : marketplaceApi.services.create({ type: values.type, title: values.title, description: values.description, price: values.price, location: values.location, availabilityNotes: values.availabilityNotes || null, isActive: values.isActive }), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["provider-services"] }); toast.success("Servicio guardado correctamente"); navigate("/my-services"); }, onError: handleError }); return <Page title={editing ? "Editar servicio" : "Nuevo servicio"}><form className="grid gap-5 rounded-card border bg-card p-6 shadow-soft md:grid-cols-2" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}><Input label="Tipo" error={form.formState.errors.type?.message} props={form.register("type")} /><Input label="Título" error={form.formState.errors.title?.message} props={form.register("title")} /><Input label="Precio" type="number" error={form.formState.errors.price?.message} props={form.register("price")} /><AddressAutocompleteInput label="Ubicación" value={currentLocation} onChange={(value) => form.setValue("location", value, { shouldDirty: true, shouldValidate: true })} /><LocationMap className="md:col-span-2" title="Vista previa de ubicación" address={currentLocation} /><label className="md:col-span-2 block text-sm font-bold">Descripción<textarea className="input-shell mt-2 min-h-28" {...form.register("description")} /></label><label className="md:col-span-2 block text-sm font-bold">Disponibilidad<textarea className="input-shell mt-2" {...form.register("availabilityNotes")} /></label><label className="font-bold"><input type="checkbox" className="mr-2" {...form.register("isActive")} />Activo</label><Button className="md:col-span-2" variant="hero" disabled={mutation.isPending}>{mutation.isPending ? "Guardando…" : "Guardar servicio"}</Button></form></Page>; }
+export function ProviderServiceFormPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const handleError = useApiError();
+  const editing = Boolean(id);
+
+  const { data: service } = useQuery({
+    queryKey: ["services", id],
+    queryFn: () => marketplaceApi.services.get(id ?? ""),
+    enabled: editing
+  });
+
+  const form = useForm<ServiceValues>({
+    resolver: zodResolver(serviceSchema),
+    values: service
+      ? {
+        type: service.type as ServiceValues["type"],
+        title: service.title,
+        description: service.description,
+        price: service.price,
+        location: service.location,
+        availabilityNotes: service.availabilityNotes ?? "",
+        isActive: service.isActive
+      }
+      : {
+        type: "WALKING",
+        title: "",
+        description: "",
+        price: 0,
+        location: "",
+        availabilityNotes: "",
+        isActive: true
+      }
+  });
+
+  const currentLocation = form.watch("location");
+  const currentPrice = form.watch("price");
+
+  const [priceInput, setPriceInput] = useState("");
+  const [availabilityDays, setAvailabilityDays] = useState<string[]>([]);
+  const [availabilityStart, setAvailabilityStart] = useState("09:00");
+  const [availabilityEnd, setAvailabilityEnd] = useState("18:00");
+  const [availabilityExtraNotes, setAvailabilityExtraNotes] = useState("");
+
+  useEffect(() => {
+    setPriceInput(formatPriceCLP(Number(currentPrice ?? 0)));
+  }, [currentPrice]);
+
+  useEffect(() => {
+    if (!service) {
+      if (!editing) {
+        setAvailabilityDays([]);
+        setAvailabilityStart("09:00");
+        setAvailabilityEnd("18:00");
+        setAvailabilityExtraNotes("");
+      }
+      return;
+    }
+
+    const parsed = parseAvailabilityNotes(service.availabilityNotes);
+    setAvailabilityDays(parsed.days);
+    setAvailabilityStart(parsed.startTime);
+    setAvailabilityEnd(parsed.endTime);
+    setAvailabilityExtraNotes(parsed.notes);
+  }, [service, editing]);
+
+  const toggleAvailabilityDay = (day: string) => {
+    setAvailabilityDays((current) => (current.includes(day) ? current.filter((item) => item !== day) : [...current, day]));
+  };
+
+  const mutation = useMutation({
+    mutationFn: (values: ServiceValues) => {
+      const availabilityNotes = buildAvailabilityNotes(availabilityDays, availabilityStart, availabilityEnd, availabilityExtraNotes);
+      const payload = {
+        type: values.type,
+        title: values.title,
+        description: values.description,
+        price: values.price,
+        location: values.location,
+        availabilityNotes,
+        isActive: values.isActive
+      };
+
+      return editing ? marketplaceApi.services.update(id ?? "", payload) : marketplaceApi.services.create(payload);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["provider-services"] });
+      toast.success("Servicio guardado correctamente");
+      navigate("/my-services");
+    },
+    onError: handleError
+  });
+
+  return (
+    <Page title={editing ? "Editar servicio" : "Nuevo servicio"}>
+      <form className="grid gap-5 rounded-card border bg-card p-6 shadow-soft md:grid-cols-2" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
+        <label className="block text-sm font-bold">
+          Tipo
+          <select className="input-shell mt-2" {...form.register("type")}>
+            {SERVICE_TYPE_OPTIONS.map((serviceType) => (
+              <option key={serviceType.value} value={serviceType.value}>{serviceType.label}</option>
+            ))}
+          </select>
+          {form.formState.errors.type?.message ? <span className="mt-1 block text-xs text-destructive">{form.formState.errors.type.message}</span> : null}
+        </label>
+
+        <Input label="Título" error={form.formState.errors.title?.message} props={form.register("title")} />
+
+        <label className="block text-sm font-bold">
+          Precio (CLP)
+          <input
+            className="input-shell mt-2"
+            value={priceInput}
+            inputMode="numeric"
+            placeholder="15.000"
+            onChange={(event) => {
+              const parsed = parsePriceInput(event.target.value);
+              form.setValue("price", parsed, { shouldDirty: true, shouldValidate: true });
+              setPriceInput(formatPriceCLP(parsed));
+            }}
+          />
+          {form.formState.errors.price?.message ? <span className="mt-1 block text-xs text-destructive">{form.formState.errors.price.message}</span> : null}
+        </label>
+
+        <AddressAutocompleteInput
+          label="Ubicación"
+          value={currentLocation}
+          onChange={(value) => form.setValue("location", value, { shouldDirty: true, shouldValidate: true })}
+        />
+
+        <LocationMap className="md:col-span-2" title="Vista previa de ubicación" address={currentLocation} />
+
+        <label className="md:col-span-2 block text-sm font-bold">
+          Descripción
+          <textarea className="input-shell mt-2 min-h-28" {...form.register("description")} />
+        </label>
+
+        <div className="md:col-span-2 rounded-card border p-4">
+          <p className="text-sm font-bold">Disponibilidad</p>
+          <p className="mt-1 text-xs text-muted-foreground">Selecciona días y horario principal del servicio.</p>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-4">
+            {SERVICE_DAY_OPTIONS.map((dayOption) => (
+              <label key={dayOption.value} className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={availabilityDays.includes(dayOption.value)}
+                  onChange={() => toggleAvailabilityDay(dayOption.value)}
+                />
+                {dayOption.label}
+              </label>
+            ))}
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="block text-sm font-bold">
+              Desde
+              <input className="input-shell mt-2" type="time" value={availabilityStart} onChange={(event) => setAvailabilityStart(event.target.value)} />
+            </label>
+            <label className="block text-sm font-bold">
+              Hasta
+              <input className="input-shell mt-2" type="time" value={availabilityEnd} onChange={(event) => setAvailabilityEnd(event.target.value)} />
+            </label>
+          </div>
+
+          <label className="mt-4 block text-sm font-bold">
+            Notas de disponibilidad
+            <textarea
+              className="input-shell mt-2"
+              value={availabilityExtraNotes}
+              onChange={(event) => setAvailabilityExtraNotes(event.target.value)}
+              placeholder="Ej: Feriados sujeto a confirmación"
+            />
+          </label>
+        </div>
+
+        <label className="font-bold">
+          <input type="checkbox" className="mr-2" {...form.register("isActive")} />Activo
+        </label>
+
+        <Button className="md:col-span-2" variant="hero" disabled={mutation.isPending}>
+          {mutation.isPending ? "Guardando..." : "Guardar servicio"}
+        </Button>
+      </form>
+    </Page>
+  );
+}
 export function ProfilePage() {
   const { profile, refreshProfile } = useAuth();
   const handleError = useApiError();

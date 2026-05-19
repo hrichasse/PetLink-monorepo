@@ -3,6 +3,24 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/petlink/StatusBadge";
 import { normalizeBookingStatus, type Announcement, type Booking, type Pet, type Service, type Vet } from "@/lib/petlink-data";
 
+const SERVICE_TYPE_LABELS: Record<string, string> = {
+  WALKING: "Paseo",
+  DAYCARE: "Hospedaje diario",
+  BOARDING: "Hospedaje",
+  TRAINING: "Entrenamiento",
+  GROOMING: "Peluqueria",
+  PET_SITTING: "Cuidado a domicilio",
+  VETERINARY: "Veterinaria",
+  ONLINE_STORE: "Tienda en linea",
+  SPA: "Spa",
+  PET_TAXI: "Transporte",
+  OTHER: "Otros"
+};
+
+function formatCLP(value: number): string {
+  return new Intl.NumberFormat("es-CL").format(Math.trunc(value));
+}
+
 type PetCardProps = {
   pet: Pet;
   size?: "default" | "large";
@@ -17,7 +35,7 @@ export function PetCard({ pet, size = "default", onImageClick }: PetCardProps) {
 }
 
 export function ServiceCard({ service }: { service: Service }) {
-  return <article className="group overflow-hidden rounded-card border bg-card shadow-soft transition-all hover:-translate-y-1 hover:shadow-warm"><div className="flex h-36 items-center justify-center bg-gradient-hero text-6xl">{service.image ?? "🐕"}</div><div className="p-5"><div className="mb-2 flex items-center justify-between"><span className="rounded-full bg-secondary px-3 py-1 text-xs font-bold text-secondary-foreground">{service.category ?? service.type}</span><span className="flex items-center gap-1 text-sm font-bold"><Star className="h-4 w-4 fill-current text-primary" />{service.rating ?? "Nuevo"}</span></div><h3 className="text-lg font-extrabold">{service.title}</h3><p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground"><MapPin className="h-4 w-4" />{service.city ?? service.location} · {service.providerName ?? "Proveedor"}</p><p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{service.description}</p><div className="mt-4 flex items-center justify-between"><strong className="text-xl">${service.price}<span className="text-xs text-muted-foreground">/servicio</span></strong><Button size="sm" variant="hero">Reservar</Button></div></div></article>;
+  return <article className="group overflow-hidden rounded-card border bg-card shadow-soft transition-all hover:-translate-y-1 hover:shadow-warm"><div className="flex h-36 items-center justify-center bg-gradient-hero text-6xl">{service.image ?? "🐕"}</div><div className="p-5"><div className="mb-2 flex items-center justify-between"><span className="rounded-full bg-secondary px-3 py-1 text-xs font-bold text-secondary-foreground">{service.category ?? SERVICE_TYPE_LABELS[service.type] ?? service.type}</span><span className="flex items-center gap-1 text-sm font-bold"><Star className="h-4 w-4 fill-current text-primary" />{service.rating ?? "Nuevo"}</span></div><h3 className="text-lg font-extrabold">{service.title}</h3><p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground"><MapPin className="h-4 w-4" />{service.city ?? service.location} · {service.providerName ?? "Proveedor"}</p><p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{service.description}</p><div className="mt-4 flex items-center justify-between"><strong className="text-xl">${formatCLP(service.price)}<span className="text-xs text-muted-foreground">/servicio</span></strong><Button size="sm" variant="hero">Reservar</Button></div></div></article>;
 }
 
 export function BookingCard({ booking, onStatus, onCancel }: { booking: Booking; onStatus?: (status: Booking["status"]) => void; onCancel?: () => void }) {
