@@ -8,6 +8,7 @@ const config: Config = {
   setupFiles: ["<rootDir>/jest.setup.ts"],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
+    "^@petlink/shared/(.*)$": "<rootDir>/../../packages/shared/src/$1",
     "^@petlink/shared$": "<rootDir>/../../packages/shared/src/index.ts",
     "^@petlink/database$": "<rootDir>/../../packages/database/src/index.ts",
   },

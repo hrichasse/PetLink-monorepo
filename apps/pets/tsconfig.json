@@ -22,6 +22,7 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./src/*"],
+      "@petlink/shared/*": ["../../packages/shared/src/*"],
       "@petlink/database": ["../../packages/database/src/index.ts"],
       "@petlink/shared": ["../../packages/shared/src/index.ts"]
     }
