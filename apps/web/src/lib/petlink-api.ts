@@ -1,8 +1,5 @@
-import { apiRequest, asQuery, setAccessToken, setRefreshToken } from "@/lib/api";
+import { apiRequest, asQuery, setAccessToken, setRefreshToken, PETLINK_AUTH_URL, PETLINK_AUTH_ANON_KEY } from "@/lib/api";
 import type { Announcement, Booking, BookingStatus, MatchCompatiblePet, MatchPreference, Payment, PaymentCheckout, PaymentProvider, Pet, PetSex, Profile, Service, Subscription, SubscriptionPlanCode, Vet } from "@/lib/petlink-data";
-
-const PETLINK_AUTH_URL = "https://nkwqzgbnzzitcnuboyto.supabase.co/auth/v1";
-const PETLINK_AUTH_ANON_KEY = process.env.NEXT_PUBLIC_PETLINK_AUTH_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5rd3F6Z2JuenppdGNudWJveXRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MTg5NTQsImV4cCI6MjA4OTI5NDk1NH0.Vc8s2lDTa8ygKzEi184WU4ZVCvg7L2b46KlK8I3YJOM";
 
 type PetLinkAuthSession = {
   access_token: string;
