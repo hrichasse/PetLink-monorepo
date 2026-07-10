@@ -6,7 +6,7 @@ import { toAnnouncementResponseDto } from "@/modules/announcements/dtos";
 import { HTTP_STATUS } from "@petlink/shared";
 import { AppError } from "@petlink/shared";
 import { ERROR_CODES } from "@petlink/shared";
-import { okPaginated, parsePagination, buildPaginationMeta } from "@petlink/shared";
+import { okPaginated, parsePagination, buildPaginationMeta, withPublicCache } from "@petlink/shared";
 
 export const listAnnouncementsController = async (request: NextRequest): Promise<NextResponse> => {
   const searchParams = request.nextUrl.searchParams;
@@ -24,9 +24,11 @@ export const listAnnouncementsController = async (request: NextRequest): Promise
   const pagination = parsePagination(searchParams);
   const { items, total } = await announcementsService.listAnnouncements(validationResult.data, pagination);
 
-  return okPaginated(
-    "Announcements fetched successfully.",
-    items.map((ann) => toAnnouncementResponseDto(ann)),
-    buildPaginationMeta(pagination, total)
+  return withPublicCache(
+    okPaginated(
+      "Announcements fetched successfully.",
+      items.map((ann) => toAnnouncementResponseDto(ann)),
+      buildPaginationMeta(pagination, total)
+    )
   );
 };

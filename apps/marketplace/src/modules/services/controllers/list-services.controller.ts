@@ -4,7 +4,7 @@ import { listServicesQuerySchema } from "@/modules/services/validators";
 import { HTTP_STATUS } from "@petlink/shared";
 import { AppError } from "@petlink/shared";
 import { ERROR_CODES } from "@petlink/shared";
-import { okPaginated, parsePagination, buildPaginationMeta } from "@petlink/shared";
+import { okPaginated, parsePagination, buildPaginationMeta, withPublicCache } from "@petlink/shared";
 import { toServiceResponseDto } from "@/modules/services/dtos";
 import { servicesService } from "@/modules/services/services";
 
@@ -26,9 +26,11 @@ export const listServicesController = async (request: NextRequest): Promise<Next
   const pagination = parsePagination(searchParams);
   const { items, total } = await servicesService.listServices(validationResult.data, pagination);
 
-  return okPaginated(
-    "Services fetched successfully.",
-    items.map((service) => toServiceResponseDto(service)),
-    buildPaginationMeta(pagination, total)
+  return withPublicCache(
+    okPaginated(
+      "Services fetched successfully.",
+      items.map((service) => toServiceResponseDto(service)),
+      buildPaginationMeta(pagination, total)
+    )
   );
 };

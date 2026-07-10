@@ -42,6 +42,23 @@ export const okPaginated = <TItem>(
   );
 };
 
+/**
+ * Cache-Control for PUBLIC, non-personalized list endpoints. `s-maxage` lets a
+ * shared CDN (Vercel) serve a cached copy for 60s; `stale-while-revalidate`
+ * keeps serving a slightly stale copy for up to 5 more minutes while it
+ * refreshes in the background.
+ *
+ * Only apply to responses with no per-user data. Note that Vercel's CDN skips
+ * caching for requests carrying an `Authorization` header, so this mainly
+ * accelerates logged-out traffic (e.g. the landing page) and lowers DB load.
+ */
+export const PUBLIC_LIST_CACHE_CONTROL = "public, s-maxage=60, stale-while-revalidate=300";
+
+export const withPublicCache = <T>(response: NextResponse<T>): NextResponse<T> => {
+  response.headers.set("Cache-Control", PUBLIC_LIST_CACHE_CONTROL);
+  return response;
+};
+
 export const fail = (
   message: string,
   errorCode: ErrorCode,

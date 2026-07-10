@@ -6,7 +6,7 @@ import { toVeterinaryResponseDto } from "@/modules/veterinaries/dtos";
 import { HTTP_STATUS } from "@petlink/shared";
 import { AppError } from "@petlink/shared";
 import { ERROR_CODES } from "@petlink/shared";
-import { okPaginated, parsePagination, buildPaginationMeta } from "@petlink/shared";
+import { okPaginated, parsePagination, buildPaginationMeta, withPublicCache } from "@petlink/shared";
 
 export const listVeterinariesController = async (request: NextRequest): Promise<NextResponse> => {
   const searchParams = request.nextUrl.searchParams;
@@ -24,9 +24,11 @@ export const listVeterinariesController = async (request: NextRequest): Promise<
   const pagination = parsePagination(searchParams);
   const { items, total } = await veterinariesService.listVeterinaries(validationResult.data, pagination);
 
-  return okPaginated(
-    "Veterinaries fetched successfully.",
-    items.map((vet) => toVeterinaryResponseDto(vet)),
-    buildPaginationMeta(pagination, total)
+  return withPublicCache(
+    okPaginated(
+      "Veterinaries fetched successfully.",
+      items.map((vet) => toVeterinaryResponseDto(vet)),
+      buildPaginationMeta(pagination, total)
+    )
   );
 };
