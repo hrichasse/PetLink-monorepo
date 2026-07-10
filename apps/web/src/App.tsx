@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -8,10 +9,33 @@ import { AppShell } from "@/components/petlink/Layout";
 import { LandingPage } from "@/views/petlink/Landing";
 import { LoginPage, RegisterPage } from "@/views/petlink/AuthPages";
 import { AuthCallbackPage } from "@/views/petlink/AuthCallback";
-import { ProfileOnboardingPage } from "@/views/petlink/ProfileOnboarding";
-import { AnnouncementsPage, BookingDetailPage, BookingsPage, DashboardPage, MatchPage, NotificationsPage, PetDetailPage, PetFormPage, PetsPage, ProfilePage, ProviderServiceFormPage, ProviderServicesPage, ServicesPage, ServiceDetailPage, SubscriptionsPage, VetsPage } from "@/views/petlink/AppPages";
 import { ApiError } from "@/lib/api";
 import NotFound from "./views/NotFound";
+
+// Authenticated screens are code-split out of the initial bundle: visitors on
+// the landing/login pages no longer download the whole app (react-hook-form,
+// zod, charts, maps, etc.). The AppPages module loads once on the first
+// protected route and is reused for the rest.
+const loadAppPages = () => import("@/views/petlink/AppPages");
+const ProfileOnboardingPage = lazy(() => import("@/views/petlink/ProfileOnboarding").then((m) => ({ default: m.ProfileOnboardingPage })));
+const AnnouncementsPage = lazy(() => loadAppPages().then((m) => ({ default: m.AnnouncementsPage })));
+const BookingDetailPage = lazy(() => loadAppPages().then((m) => ({ default: m.BookingDetailPage })));
+const BookingsPage = lazy(() => loadAppPages().then((m) => ({ default: m.BookingsPage })));
+const DashboardPage = lazy(() => loadAppPages().then((m) => ({ default: m.DashboardPage })));
+const MatchPage = lazy(() => loadAppPages().then((m) => ({ default: m.MatchPage })));
+const NotificationsPage = lazy(() => loadAppPages().then((m) => ({ default: m.NotificationsPage })));
+const PetDetailPage = lazy(() => loadAppPages().then((m) => ({ default: m.PetDetailPage })));
+const PetFormPage = lazy(() => loadAppPages().then((m) => ({ default: m.PetFormPage })));
+const PetsPage = lazy(() => loadAppPages().then((m) => ({ default: m.PetsPage })));
+const ProfilePage = lazy(() => loadAppPages().then((m) => ({ default: m.ProfilePage })));
+const ProviderServiceFormPage = lazy(() => loadAppPages().then((m) => ({ default: m.ProviderServiceFormPage })));
+const ProviderServicesPage = lazy(() => loadAppPages().then((m) => ({ default: m.ProviderServicesPage })));
+const ServicesPage = lazy(() => loadAppPages().then((m) => ({ default: m.ServicesPage })));
+const ServiceDetailPage = lazy(() => loadAppPages().then((m) => ({ default: m.ServiceDetailPage })));
+const SubscriptionsPage = lazy(() => loadAppPages().then((m) => ({ default: m.SubscriptionsPage })));
+const VetsPage = lazy(() => loadAppPages().then((m) => ({ default: m.VetsPage })));
+
+const fullScreenLoader = <div className="grid min-h-screen place-items-center bg-background text-foreground">Cargando PetLink…</div>;
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,14 +68,13 @@ function ProtectedRoutes() {
   const location = useLocation();
   const isOnboardingRoute = location.pathname === "/onboarding/profile";
   const isProfileComplete = Boolean(profile?.fullName?.trim() && profile?.city?.trim() && profile?.location?.trim());
-  const loadingScreen = <div className="grid min-h-screen place-items-center bg-background text-foreground">Cargando PetLink…</div>;
 
-  if (loading) return loadingScreen;
+  if (loading) return fullScreenLoader;
   if (!user) return <Navigate to="/login" replace />;
   // Session is valid but the profile fetch hasn't resolved yet: wait instead of
   // assuming the user needs onboarding. Without this, every login/reload flashes
   // the onboarding screen for ~3s until the profile request (cold-started) returns.
-  if (profileLoading && !isProfileComplete) return loadingScreen;
+  if (profileLoading && !isProfileComplete) return fullScreenLoader;
   if (!isProfileComplete && !isOnboardingRoute) return <Navigate to="/onboarding/profile" replace />;
   if (isProfileComplete && isOnboardingRoute) return <Navigate to="/dashboard" replace />;
   return <AppShell />;
@@ -64,6 +87,7 @@ const App = () => (
         <Toaster />
         <Sonner richColors position="top-right" />
         <BrowserRouter>
+          <Suspense fallback={fullScreenLoader}>
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
@@ -92,6 +116,7 @@ const App = () => (
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
         </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>
