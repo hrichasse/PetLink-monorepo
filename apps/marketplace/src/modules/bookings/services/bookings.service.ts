@@ -4,6 +4,7 @@ import type { CreateBookingDto, ListBookingsQueryDto, UpdateBookingStatusDto } f
 import { bookingsRepository } from "@/modules/bookings/repositories";
 import type { BookingModel } from "@/modules/bookings/types";
 import { petsApiClient } from "@/lib/internal/pets-api.client";
+import type { Paginated, PaginationParams } from "@petlink/shared";
 import { HTTP_STATUS } from "@petlink/shared";
 import { AppError } from "@petlink/shared";
 import { ERROR_CODES } from "@petlink/shared";
@@ -82,8 +83,8 @@ export const bookingsService = {
     return bookingsRepository.create(authUserId, service.providerId, payload);
   },
 
-  listMyBookings: (authUserId: string, query: ListBookingsQueryDto): Promise<BookingModel[]> => {
-    return bookingsRepository.findManyForUser(authUserId, query);
+  listMyBookings: (authUserId: string, query: ListBookingsQueryDto, pagination: PaginationParams): Promise<Paginated<BookingModel>> => {
+    return bookingsRepository.findManyForUser(authUserId, query, pagination);
   },
 
   getBookingByIdForUser: async (authUserId: string, bookingId: string): Promise<BookingModel> => {

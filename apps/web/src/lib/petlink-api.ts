@@ -59,8 +59,13 @@ export type CreatePetInput = {
   isVaccinated?: boolean;
 };
 
+// Backend list endpoints are paginated (default pageSize=20). Until the UI has
+// real pagination controls (see roadmap), request the max page size so current
+// lists are not silently truncated while queries stay bounded server-side.
+const LIST_PAGE_SIZE = 100;
+
 export const petsApi = {
-  list: () => apiRequest<Pet[]>("pets", "/pets"),
+  list: () => apiRequest<Pet[]>("pets", `/pets${asQuery({ pageSize: LIST_PAGE_SIZE })}`),
   get: (id: string) => apiRequest<Pet>("pets", `/pets/${id}`),
   create: (payload: CreatePetInput) => apiRequest<Pet>("pets", "/pets", { method: "POST", body: JSON.stringify(payload) }),
   update: (id: string, payload: Partial<CreatePetInput>) => apiRequest<Pet>("pets", `/pets/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
@@ -93,13 +98,13 @@ export type ServiceInput = Pick<Service, "type" | "title" | "description" | "pri
 export const marketplaceApi = {
   services: {
     list: (filters: { type?: string; location?: string; providerId?: string; isActive?: boolean } = {}) =>
-      apiRequest<Service[]>("marketplace", `/services${asQuery(filters)}`),
+      apiRequest<Service[]>("marketplace", `/services${asQuery({ ...filters, pageSize: LIST_PAGE_SIZE })}`),
     get: (id: string) => apiRequest<Service>("marketplace", `/services/${id}`),
     create: (payload: ServiceInput) => apiRequest<Service>("marketplace", "/services", { method: "POST", body: JSON.stringify(payload) }),
     update: (id: string, payload: Partial<ServiceInput>) => apiRequest<Service>("marketplace", `/services/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
   },
   bookings: {
-    list: (role: "owner" | "provider") => apiRequest<Booking[]>("marketplace", `/bookings?role=${role}`),
+    list: (role: "owner" | "provider") => apiRequest<Booking[]>("marketplace", `/bookings${asQuery({ role, pageSize: LIST_PAGE_SIZE })}`),
     get: (id: string) => apiRequest<Booking>("marketplace", `/bookings/${id}`),
     create: (payload: { petId: string; serviceId: string; bookingDate: string; durationHours?: number; notes?: string | null }) =>
       apiRequest<Booking>("marketplace", "/bookings", { method: "POST", body: JSON.stringify(payload) }),
@@ -109,14 +114,14 @@ export const marketplaceApi = {
   },
   vets: {
     list: (filters: { city?: string; specialty?: string; isPartner?: boolean; isActive?: boolean } = {}) =>
-      apiRequest<Vet[]>("marketplace", `/veterinaries${asQuery(filters)}`),
+      apiRequest<Vet[]>("marketplace", `/veterinaries${asQuery({ ...filters, pageSize: LIST_PAGE_SIZE })}`),
     get: (id: string) => apiRequest<Vet>("marketplace", `/veterinaries/${id}`),
       create: (payload: { name: string; address: string; city: string; phone?: string | null; description?: string | null; specialties?: string[]; isActive?: boolean }) =>
         apiRequest<Vet>("marketplace", "/veterinaries", { method: "POST", body: JSON.stringify(payload) }),
     },
   announcements: {
     list: (filters: { type?: string; city?: string; authorId?: string; isActive?: boolean } = {}) =>
-      apiRequest<Announcement[]>("pets", `/announcements${asQuery(filters)}`),
+      apiRequest<Announcement[]>("pets", `/announcements${asQuery({ ...filters, pageSize: LIST_PAGE_SIZE })}`),
     get: (id: string) => apiRequest<Announcement>("pets", `/announcements/${id}`),
     create: (payload: Partial<Announcement> & Pick<Announcement, "type" | "title" | "description">) =>
       apiRequest<Announcement>("pets", "/announcements", { method: "POST", body: JSON.stringify(payload) }),
@@ -143,6 +148,6 @@ export const marketplaceApi = {
       apiRequest<PaymentCheckout>("marketplace", "/payments/checkout", { method: "POST", body: JSON.stringify(payload) }),
     confirm: (id: string, payload: { status: "APPROVED" | "REJECTED" | "CANCELLED" | "FAILED"; providerPaymentId?: string | null; providerReference?: string | null; paymentMethod?: string | null; metadata?: Record<string, unknown> }) =>
       apiRequest<Payment>("marketplace", `/payments/${id}/confirm`, { method: "POST", body: JSON.stringify(payload) }),
-    my: () => apiRequest<Payment[]>("marketplace", "/payments/my"),
+    my: () => apiRequest<Payment[]>("marketplace", `/payments/my${asQuery({ pageSize: LIST_PAGE_SIZE })}`),
   }
 };

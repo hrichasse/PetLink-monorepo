@@ -4,6 +4,7 @@ import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import type { CreateReviewDto } from "@/modules/reviews/dtos";
 import { reviewsRepository } from "@/modules/reviews/repositories";
 import type { ReviewModel } from "@/modules/reviews/types";
+import type { Paginated, PaginationParams } from "@petlink/shared";
 import { HTTP_STATUS } from "@petlink/shared";
 import { AppError } from "@petlink/shared";
 import { ERROR_CODES } from "@petlink/shared";
@@ -53,11 +54,11 @@ export const reviewsService = {
     }
   },
 
-  listReviewsByService: (serviceId: string): Promise<ReviewModel[]> => {
-    return reviewsRepository.findManyByServiceId(serviceId);
+  listReviewsByService: (serviceId: string, pagination: PaginationParams): Promise<Paginated<ReviewModel>> => {
+    return reviewsRepository.findManyByServiceId(serviceId, pagination);
   },
 
-  listReviewsByProvider: (providerId: string): Promise<ReviewModel[]> => {
-    return reviewsRepository.findManyByProviderId(providerId);
+  listReviewsByProvider: (providerId: string, pagination: PaginationParams): Promise<Paginated<ReviewModel>> => {
+    return reviewsRepository.findManyByProviderId(providerId, pagination);
   }
 };

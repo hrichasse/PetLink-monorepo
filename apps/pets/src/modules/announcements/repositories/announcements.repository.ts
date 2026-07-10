@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@petlink/database";
+import type { Paginated, PaginationParams } from "@petlink/shared";
 import type { CreateAnnouncementDto, ListAnnouncementsQueryDto, UpdateAnnouncementDto } from "@/modules/announcements/dtos";
 import type { AnnouncementModel } from "@/modules/announcements/types";
 
@@ -136,11 +137,16 @@ export const announcementsRepository = {
     return prisma.announcement.create({ data: toCreateInput(authorId, payload) });
   },
 
-  findMany: (query: ListAnnouncementsQueryDto): Promise<AnnouncementModel[]> => {
-    return prisma.announcement.findMany({
-      where: toWhereInput(query),
-      orderBy: { createdAt: "desc" }
+  findMany: async (query: ListAnnouncementsQueryDto, pagination: PaginationParams): Promise<Paginated<AnnouncementModel>> => {
+    const where = toWhereInput(query);
+    const items = await prisma.announcement.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: pagination.skip,
+      take: pagination.take
     });
+    const total = await prisma.announcement.count({ where });
+    return { items, total };
   },
 
   findById: (id: string): Promise<AnnouncementModel | null> => {

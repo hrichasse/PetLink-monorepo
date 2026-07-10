@@ -1,6 +1,7 @@
 import type { BookingStatus, Prisma, Service } from "@prisma/client";
 
 import { prisma } from "@petlink/database";
+import type { Paginated, PaginationParams } from "@petlink/shared";
 import type { CreateBookingDto, ListBookingsQueryDto } from "@/modules/bookings/dtos";
 import type { BookingModel } from "@/modules/bookings/types";
 
@@ -82,15 +83,20 @@ export const bookingsRepository = {
     });
   },
 
-  findManyForUser: (authUserId: string, query: ListBookingsQueryDto): Promise<BookingModel[]> => {
-    return prisma.booking.findMany({
-      where: toWhereForUser(authUserId, query),
+  findManyForUser: async (authUserId: string, query: ListBookingsQueryDto, pagination: PaginationParams): Promise<Paginated<BookingModel>> => {
+    const where = toWhereForUser(authUserId, query);
+    const items = await prisma.booking.findMany({
+      where,
       include: {
         service: true,
         pet: true
       },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
+      skip: pagination.skip,
+      take: pagination.take
     });
+    const total = await prisma.booking.count({ where });
+    return { items, total };
   },
 
   updateStatusById: (id: string, status: BookingStatus, notes?: string | null): Promise<BookingModel> => {

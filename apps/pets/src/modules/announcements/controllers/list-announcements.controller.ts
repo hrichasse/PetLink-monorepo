@@ -6,11 +6,12 @@ import { toAnnouncementResponseDto } from "@/modules/announcements/dtos";
 import { HTTP_STATUS } from "@petlink/shared";
 import { AppError } from "@petlink/shared";
 import { ERROR_CODES } from "@petlink/shared";
-import { ok } from "@petlink/shared";
+import { okPaginated, parsePagination, buildPaginationMeta } from "@petlink/shared";
 
 export const listAnnouncementsController = async (request: NextRequest): Promise<NextResponse> => {
-  const rawQuery = Object.fromEntries(request.nextUrl.searchParams.entries());
-  const validationResult = listAnnouncementsQuerySchema.safeParse(rawQuery);
+  const searchParams = request.nextUrl.searchParams;
+  const { page: _page, pageSize: _pageSize, ...rawFilters } = Object.fromEntries(searchParams.entries());
+  const validationResult = listAnnouncementsQuerySchema.safeParse(rawFilters);
 
   if (!validationResult.success) {
     throw new AppError("Invalid announcement filters.", {
@@ -20,10 +21,12 @@ export const listAnnouncementsController = async (request: NextRequest): Promise
     });
   }
 
-  const announcements = await announcementsService.listAnnouncements(validationResult.data);
+  const pagination = parsePagination(searchParams);
+  const { items, total } = await announcementsService.listAnnouncements(validationResult.data, pagination);
 
-  return ok(
+  return okPaginated(
     "Announcements fetched successfully.",
-    announcements.map((ann) => toAnnouncementResponseDto(ann))
+    items.map((ann) => toAnnouncementResponseDto(ann)),
+    buildPaginationMeta(pagination, total)
   );
 };

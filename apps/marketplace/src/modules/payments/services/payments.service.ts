@@ -7,6 +7,7 @@ import { paymentProviderFactory } from "@/modules/payments/providers";
 import { getSubscriptionPlanByCode } from "@/modules/subscriptions/config/plans";
 import { subscriptionsRepository } from "@/modules/subscriptions/repositories";
 import { subscriptionsService } from "@/modules/subscriptions/services";
+import type { Paginated, PaginationParams } from "@petlink/shared";
 import { HTTP_STATUS } from "@petlink/shared";
 import { AppError } from "@petlink/shared";
 import { ERROR_CODES } from "@petlink/shared";
@@ -150,8 +151,8 @@ export const paymentsService = {
     };
   },
 
-  listMyPayments: (authUserId: string): Promise<PaymentModel[]> => {
-    return paymentsRepository.findManyByUserId(authUserId);
+  listMyPayments: (authUserId: string, pagination: PaginationParams): Promise<Paginated<PaymentModel>> => {
+    return paymentsRepository.findManyByUserId(authUserId, pagination);
   },
 
   getPaymentByIdForUser: async (authUserId: string, paymentId: string): Promise<PaymentModel> => {

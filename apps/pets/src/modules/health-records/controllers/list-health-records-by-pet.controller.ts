@@ -5,7 +5,7 @@ import { requireAuth } from "@petlink/shared";
 import { HTTP_STATUS } from "@petlink/shared";
 import { AppError } from "@petlink/shared";
 import { ERROR_CODES } from "@petlink/shared";
-import { ok } from "@petlink/shared";
+import { okPaginated, parsePagination, buildPaginationMeta } from "@petlink/shared";
 import { toHealthRecordResponseDto } from "@/modules/health-records/dtos";
 import { healthRecordsService } from "@/modules/health-records/services";
 
@@ -30,12 +30,16 @@ export const listHealthRecordsByPetController = async (
     });
   }
 
-  const records = await healthRecordsService.listByPetId(authUser.userId, validationResult.data.petId);
+  const pagination = parsePagination(request.nextUrl.searchParams);
+  const { items, total } = await healthRecordsService.listByPetId(
+    authUser.userId,
+    validationResult.data.petId,
+    pagination
+  );
 
-  return ok(
+  return okPaginated(
     "Health records fetched successfully.",
-    records.map((record) => {
-      return toHealthRecordResponseDto(record);
-    })
+    items.map((record) => toHealthRecordResponseDto(record)),
+    buildPaginationMeta(pagination, total)
   );
 };

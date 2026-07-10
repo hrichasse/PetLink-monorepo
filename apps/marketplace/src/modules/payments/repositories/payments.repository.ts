@@ -1,6 +1,7 @@
 import type { Payment, PaymentProvider, PaymentStatus, PaymentWebhookEvent, Prisma } from "@prisma/client";
 
 import { prisma } from "@petlink/database";
+import type { Paginated, PaginationParams } from "@petlink/shared";
 import type { CreateCheckoutDto, PaymentWebhookDto } from "@/modules/payments/dtos";
 import type { PaymentModel, PaymentWebhookEventModel } from "@/modules/payments/types";
 import type { SubscriptionPlan } from "@/modules/subscriptions/types";
@@ -62,13 +63,17 @@ export const paymentsRepository = {
     });
   },
 
-  findManyByUserId: (userId: string): Promise<PaymentModel[]> => {
-    return prisma.payment.findMany({
+  findManyByUserId: async (userId: string, pagination: PaginationParams): Promise<Paginated<PaymentModel>> => {
+    const items = await prisma.payment.findMany({
       where: { userId },
       orderBy: {
         createdAt: "desc"
-      }
+      },
+      skip: pagination.skip,
+      take: pagination.take
     });
+    const total = await prisma.payment.count({ where: { userId } });
+    return { items, total };
   },
 
   updateById: (id: string, data: Prisma.PaymentUpdateInput): Promise<PaymentModel> => {

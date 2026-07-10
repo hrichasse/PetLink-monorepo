@@ -17,6 +17,7 @@ export * from "./types/auth-user";
 // Utils
 export * from "./utils/env";
 export * from "./utils/get-auth-token";
+export * from "./utils/pagination";
 
 // Middleware
 export * from "./middleware/auth";

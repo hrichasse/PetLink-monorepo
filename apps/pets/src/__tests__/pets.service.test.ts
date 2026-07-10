@@ -71,21 +71,23 @@ describe("petsService.createPet()", () => {
 // listAuthenticatedUserPets
 // ─────────────────────────────────────────────
 describe("petsService.listAuthenticatedUserPets()", () => {
-  it("returns the list of pets for the authenticated user", async () => {
-    mockRepo.findManyByOwnerId.mockResolvedValueOnce([FAKE_PET]);
+  const PAGINATION = { page: 1, pageSize: 20, skip: 0, take: 20 };
 
-    const result = await petsService.listAuthenticatedUserPets(OWNER_ID);
+  it("returns the paginated pets for the authenticated user", async () => {
+    mockRepo.findManyByOwnerId.mockResolvedValueOnce({ items: [FAKE_PET], total: 1 });
 
-    expect(result).toEqual([FAKE_PET]);
-    expect(mockRepo.findManyByOwnerId).toHaveBeenCalledWith(OWNER_ID);
+    const result = await petsService.listAuthenticatedUserPets(OWNER_ID, PAGINATION);
+
+    expect(result).toEqual({ items: [FAKE_PET], total: 1 });
+    expect(mockRepo.findManyByOwnerId).toHaveBeenCalledWith(OWNER_ID, PAGINATION);
   });
 
-  it("returns an empty array when the user has no pets", async () => {
-    mockRepo.findManyByOwnerId.mockResolvedValueOnce([]);
+  it("returns an empty page when the user has no pets", async () => {
+    mockRepo.findManyByOwnerId.mockResolvedValueOnce({ items: [], total: 0 });
 
-    const result = await petsService.listAuthenticatedUserPets(OWNER_ID);
+    const result = await petsService.listAuthenticatedUserPets(OWNER_ID, PAGINATION);
 
-    expect(result).toEqual([]);
+    expect(result).toEqual({ items: [], total: 0 });
   });
 });
 

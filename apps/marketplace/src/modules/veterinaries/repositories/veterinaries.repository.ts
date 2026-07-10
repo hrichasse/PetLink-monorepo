@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@petlink/database";
+import type { Paginated, PaginationParams } from "@petlink/shared";
 import type { CreateVeterinaryDto, ListVeterinariesQueryDto, UpdateVeterinaryDto } from "@/modules/veterinaries/dtos";
 import type { VeterinaryModel } from "@/modules/veterinaries/types";
 
@@ -147,11 +148,16 @@ export const veterinariesRepository = {
     return prisma.veterinary.create({ data: toCreateInput(payload) });
   },
 
-  findMany: (query: ListVeterinariesQueryDto): Promise<VeterinaryModel[]> => {
-    return prisma.veterinary.findMany({
-      where: toWhereInput(query),
-      orderBy: { createdAt: "desc" }
+  findMany: async (query: ListVeterinariesQueryDto, pagination: PaginationParams): Promise<Paginated<VeterinaryModel>> => {
+    const where = toWhereInput(query);
+    const items = await prisma.veterinary.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: pagination.skip,
+      take: pagination.take
     });
+    const total = await prisma.veterinary.count({ where });
+    return { items, total };
   },
 
   findById: (id: string): Promise<VeterinaryModel | null> => {

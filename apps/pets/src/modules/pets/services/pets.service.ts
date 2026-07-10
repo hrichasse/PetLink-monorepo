@@ -2,6 +2,7 @@ import type { CreatePetDto, UpdatePetDto } from "@/modules/pets/dtos";
 import { petsRepository } from "@/modules/pets/repositories";
 import type { PetModel } from "@/modules/pets/types";
 import { Prisma } from "@prisma/client";
+import type { Paginated, PaginationParams } from "@petlink/shared";
 import { HTTP_STATUS } from "@petlink/shared";
 import { AppError } from "@petlink/shared";
 import { ERROR_CODES } from "@petlink/shared";
@@ -24,8 +25,8 @@ export const petsService = {
     return petsRepository.create(authUserId, payload);
   },
 
-  listAuthenticatedUserPets: (authUserId: string): Promise<PetModel[]> => {
-    return petsRepository.findManyByOwnerId(authUserId);
+  listAuthenticatedUserPets: (authUserId: string, pagination: PaginationParams): Promise<Paginated<PetModel>> => {
+    return petsRepository.findManyByOwnerId(authUserId, pagination);
   },
 
   getPetByIdForUser: async (authUserId: string, petId: string): Promise<PetModel> => {
