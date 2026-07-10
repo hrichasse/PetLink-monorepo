@@ -16,6 +16,7 @@ type AuthContextValue = {
   profile: Profile | null;
   role: Role;
   loading: boolean;
+  profileLoading: boolean;
   refreshProfile: () => Promise<Profile | null>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string, role: Role) => Promise<void>;
@@ -95,6 +96,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRoleState] = useState<Role>("OWNER");
   const [loading, setLoading] = useState(true);
+  // True while the profile is being fetched for a valid session. The router
+  // uses this to wait for the profile instead of assuming the user needs
+  // onboarding during the window where the session exists but the profile
+  // hasn't loaded yet (which caused a ~3s onboarding flash on every login).
+  const [profileLoading, setProfileLoading] = useState(false);
 
   async function signOutSilently() {
     clearAuthTokens();
@@ -170,19 +176,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(restoredSession);
 
       const cachedProfile = getCachedProfile();
-      if (cachedProfile?.userId === restoredSession.user.id && isRole(cachedProfile.role)) {
+      const hasFreshCachedProfile =
+        cachedProfile?.userId === restoredSession.user.id && isRole(cachedProfile.role);
+      if (hasFreshCachedProfile) {
         setProfile(cachedProfile);
         setRoleState(cachedProfile.role);
       }
 
+      // Without a cached profile to render, the router must wait for the fetch
+      // below instead of redirecting to onboarding on a not-yet-loaded profile.
+      if (!hasFreshCachedProfile) setProfileLoading(true);
       setLoading(false);
 
-      const me = await refreshProfile({ silentUnauthorized: true, silent: true });
-      if (!me) {
-        const currentToken = await getAccessToken();
-        if (!currentToken) {
-          await signOutSilently();
+      try {
+        const me = await refreshProfile({ silentUnauthorized: true, silent: true });
+        if (!me) {
+          const currentToken = await getAccessToken();
+          if (!currentToken) {
+            await signOutSilently();
+          }
         }
+      } finally {
+        setProfileLoading(false);
       }
     })();
   }, []);
@@ -193,11 +208,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profile,
     role,
     loading,
+    profileLoading,
     refreshProfile,
     signIn: async (email, password) => {
       const nextSession = await authApi.login({ email, password });
+      // Flag the profile as loading *before* exposing the session, so the router
+      // waits for the profile fetch instead of flashing the onboarding screen
+      // while the session exists but the profile hasn't loaded yet.
+      setProfileLoading(true);
       setSession(nextSession);
-      await provisionAndLoad(nextSession, { silent: true });
+      try {
+        await provisionAndLoad(nextSession, { silent: true });
+      } finally {
+        setProfileLoading(false);
+      }
       toast.success("Bienvenido de vuelta a PetLink");
     },
     signUp: async (email, password, fullName, selectedRole) => {
@@ -241,7 +265,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await signOutSilently();
       toast.success("Sesión cerrada");
     },
-  }), [loading, profile, role, session]);
+  }), [loading, profileLoading, profile, role, session]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
