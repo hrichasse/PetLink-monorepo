@@ -4,7 +4,7 @@ import { providerIdParamsSchema } from "@/modules/reviews/validators";
 import { HTTP_STATUS } from "@petlink/shared";
 import { AppError } from "@petlink/shared";
 import { ERROR_CODES } from "@petlink/shared";
-import { ok } from "@petlink/shared";
+import { okPaginated, parsePagination, buildPaginationMeta } from "@petlink/shared";
 import { toReviewResponseDto } from "@/modules/reviews/dtos";
 import { reviewsService } from "@/modules/reviews/services";
 
@@ -28,12 +28,12 @@ export const listReviewsByProviderController = async (
     });
   }
 
-  const reviews = await reviewsService.listReviewsByProvider(validationResult.data.providerId);
+  const pagination = parsePagination(request.nextUrl.searchParams);
+  const { items, total } = await reviewsService.listReviewsByProvider(validationResult.data.providerId, pagination);
 
-  return ok(
+  return okPaginated(
     "Reviews fetched successfully.",
-    reviews.map((review) => {
-      return toReviewResponseDto(review);
-    })
+    items.map((review) => toReviewResponseDto(review)),
+    buildPaginationMeta(pagination, total)
   );
 };

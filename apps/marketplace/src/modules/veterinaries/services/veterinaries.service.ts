@@ -1,6 +1,7 @@
 import type { CreateVeterinaryDto, ListVeterinariesQueryDto, UpdateVeterinaryDto } from "@/modules/veterinaries/dtos";
 import { veterinariesRepository } from "@/modules/veterinaries/repositories";
 import type { VeterinaryModel } from "@/modules/veterinaries/types";
+import type { Paginated, PaginationParams } from "@petlink/shared";
 import { NotFoundError } from "@petlink/shared";
 
 const VETERINARY_NOT_FOUND_MESSAGE = "Veterinary not found.";
@@ -10,11 +11,14 @@ export const veterinariesService = {
     return veterinariesRepository.create(payload);
   },
 
-  listVeterinaries: (query: ListVeterinariesQueryDto): Promise<VeterinaryModel[]> => {
-    return veterinariesRepository.findMany({
-      ...query,
-      isActive: query.isActive ?? true
-    });
+  listVeterinaries: (query: ListVeterinariesQueryDto, pagination: PaginationParams): Promise<Paginated<VeterinaryModel>> => {
+    return veterinariesRepository.findMany(
+      {
+        ...query,
+        isActive: query.isActive ?? true
+      },
+      pagination
+    );
   },
 
   getVeterinaryById: async (id: string): Promise<VeterinaryModel> => {

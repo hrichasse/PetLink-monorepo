@@ -1,6 +1,7 @@
 import type { CreateServiceDto, ListServicesQueryDto, UpdateServiceDto } from "@/modules/services/dtos";
 import { servicesRepository } from "@/modules/services/repositories";
 import type { ServiceModel } from "@/modules/services/types";
+import type { Paginated, PaginationParams } from "@petlink/shared";
 import { HTTP_STATUS } from "@petlink/shared";
 import { AppError } from "@petlink/shared";
 import { ERROR_CODES } from "@petlink/shared";
@@ -23,12 +24,15 @@ export const servicesService = {
     return servicesRepository.create(authUserId, payload);
   },
 
-  listServices: (query: ListServicesQueryDto): Promise<ServiceModel[]> => {
-    return servicesRepository.findMany({
-      ...query,
-      // Public marketplace should default to active listings only.
-      isActive: query.isActive ?? true
-    });
+  listServices: (query: ListServicesQueryDto, pagination: PaginationParams): Promise<Paginated<ServiceModel>> => {
+    return servicesRepository.findMany(
+      {
+        ...query,
+        // Public marketplace should default to active listings only.
+        isActive: query.isActive ?? true
+      },
+      pagination
+    );
   },
 
   getServiceById: async (id: string): Promise<ServiceModel> => {

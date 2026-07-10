@@ -1,6 +1,7 @@
 import type { CreateHealthRecordDto, UpdateHealthRecordDto } from "@/modules/health-records/dtos";
 import { healthRecordsRepository } from "@/modules/health-records/repositories";
 import type { HealthRecordModel } from "@/modules/health-records/types";
+import type { Paginated, PaginationParams } from "@petlink/shared";
 import { HTTP_STATUS } from "@petlink/shared";
 import { AppError } from "@petlink/shared";
 import { ERROR_CODES } from "@petlink/shared";
@@ -46,9 +47,9 @@ export const healthRecordsService = {
     return healthRecordsRepository.create(payload);
   },
 
-  listByPetId: async (authUserId: string, petId: string): Promise<HealthRecordModel[]> => {
+  listByPetId: async (authUserId: string, petId: string, pagination: PaginationParams): Promise<Paginated<HealthRecordModel>> => {
     await assertPetOwnership(authUserId, petId);
-    return healthRecordsRepository.findManyByPetId(petId);
+    return healthRecordsRepository.findManyByPetId(petId, pagination);
   },
 
   updateHealthRecord: async (

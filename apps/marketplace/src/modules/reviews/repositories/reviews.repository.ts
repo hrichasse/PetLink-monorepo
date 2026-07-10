@@ -1,6 +1,7 @@
 import type { Booking, Prisma } from "@prisma/client";
 
 import { prisma } from "@petlink/database";
+import type { Paginated, PaginationParams } from "@petlink/shared";
 import type { CreateReviewDto } from "@/modules/reviews/dtos";
 import type { ReviewModel } from "@/modules/reviews/types";
 
@@ -55,17 +56,25 @@ export const reviewsRepository = {
     });
   },
 
-  findManyByServiceId: (serviceId: string): Promise<ReviewModel[]> => {
-    return prisma.review.findMany({
+  findManyByServiceId: async (serviceId: string, pagination: PaginationParams): Promise<Paginated<ReviewModel>> => {
+    const items = await prisma.review.findMany({
       where: { serviceId },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
+      skip: pagination.skip,
+      take: pagination.take
     });
+    const total = await prisma.review.count({ where: { serviceId } });
+    return { items, total };
   },
 
-  findManyByProviderId: (providerId: string): Promise<ReviewModel[]> => {
-    return prisma.review.findMany({
+  findManyByProviderId: async (providerId: string, pagination: PaginationParams): Promise<Paginated<ReviewModel>> => {
+    const items = await prisma.review.findMany({
       where: { providerId },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
+      skip: pagination.skip,
+      take: pagination.take
     });
+    const total = await prisma.review.count({ where: { providerId } });
+    return { items, total };
   }
 };

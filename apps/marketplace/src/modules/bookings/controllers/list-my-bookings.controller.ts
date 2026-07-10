@@ -5,14 +5,15 @@ import { requireAuth } from "@petlink/shared";
 import { HTTP_STATUS } from "@petlink/shared";
 import { AppError } from "@petlink/shared";
 import { ERROR_CODES } from "@petlink/shared";
-import { ok } from "@petlink/shared";
+import { okPaginated, parsePagination, buildPaginationMeta } from "@petlink/shared";
 import { toBookingResponseDto } from "@/modules/bookings/dtos";
 import { bookingsService } from "@/modules/bookings/services";
 
 export const listMyBookingsController = async (request: NextRequest): Promise<NextResponse> => {
   const authUser = await requireAuth(request);
-  const rawQuery = Object.fromEntries(request.nextUrl.searchParams.entries());
-  const validationResult = listBookingsQuerySchema.safeParse(rawQuery);
+  const searchParams = request.nextUrl.searchParams;
+  const { page: _page, pageSize: _pageSize, ...rawFilters } = Object.fromEntries(searchParams.entries());
+  const validationResult = listBookingsQuerySchema.safeParse(rawFilters);
 
   if (!validationResult.success) {
     throw new AppError("Invalid booking filters.", {
@@ -22,12 +23,12 @@ export const listMyBookingsController = async (request: NextRequest): Promise<Ne
     });
   }
 
-  const bookings = await bookingsService.listMyBookings(authUser.userId, validationResult.data);
+  const pagination = parsePagination(searchParams);
+  const { items, total } = await bookingsService.listMyBookings(authUser.userId, validationResult.data, pagination);
 
-  return ok(
+  return okPaginated(
     "Bookings fetched successfully.",
-    bookings.map((booking) => {
-      return toBookingResponseDto(booking);
-    })
+    items.map((booking) => toBookingResponseDto(booking)),
+    buildPaginationMeta(pagination, total)
   );
 };

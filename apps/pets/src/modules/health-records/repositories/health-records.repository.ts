@@ -1,6 +1,7 @@
 import type { HealthRecord, Pet, Prisma } from "@prisma/client";
 
 import { prisma } from "@petlink/database";
+import type { Paginated, PaginationParams } from "@petlink/shared";
 import type { CreateHealthRecordDto, UpdateHealthRecordDto } from "@/modules/health-records/dtos";
 import type { HealthRecordModel } from "@/modules/health-records/types";
 
@@ -66,11 +67,15 @@ export const healthRecordsRepository = {
     });
   },
 
-  findManyByPetId: (petId: string): Promise<HealthRecordModel[]> => {
-    return prisma.healthRecord.findMany({
+  findManyByPetId: async (petId: string, pagination: PaginationParams): Promise<Paginated<HealthRecordModel>> => {
+    const items = await prisma.healthRecord.findMany({
       where: { petId },
-      orderBy: [{ recordDate: "desc" }, { createdAt: "desc" }]
+      orderBy: [{ recordDate: "desc" }, { createdAt: "desc" }],
+      skip: pagination.skip,
+      take: pagination.take
     });
+    const total = await prisma.healthRecord.count({ where: { petId } });
+    return { items, total };
   },
 
   findById: (id: string): Promise<HealthRecord | null> => {

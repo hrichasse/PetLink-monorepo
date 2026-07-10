@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@petlink/database";
+import type { Paginated, PaginationParams } from "@petlink/shared";
 import type { CreatePetDto, UpdatePetDto } from "@/modules/pets/dtos";
 import type { PetModel } from "@/modules/pets/types";
 
@@ -84,10 +85,12 @@ export const petsRepository = {
     });
   },
 
-  findManyByOwnerId: (ownerId: string): Promise<PetModel[]> => {
-    return prisma.pet.findMany({
+  findManyByOwnerId: async (ownerId: string, pagination: PaginationParams): Promise<Paginated<PetModel>> => {
+    const items = await prisma.pet.findMany({
       where: { ownerId },
       orderBy: { createdAt: "desc" },
+      skip: pagination.skip,
+      take: pagination.take,
       include: {
         images: {
           orderBy: { createdAt: "desc" },
@@ -96,6 +99,8 @@ export const petsRepository = {
         }
       }
     });
+    const total = await prisma.pet.count({ where: { ownerId } });
+    return { items, total };
   },
 
   findById: (id: string): Promise<PetModel | null> => {

@@ -1,6 +1,7 @@
 import type { CreateAnnouncementDto, ListAnnouncementsQueryDto, UpdateAnnouncementDto } from "@/modules/announcements/dtos";
 import { announcementsRepository } from "@/modules/announcements/repositories";
 import type { AnnouncementModel } from "@/modules/announcements/types";
+import type { Paginated, PaginationParams } from "@petlink/shared";
 import { HTTP_STATUS } from "@petlink/shared";
 import { AppError } from "@petlink/shared";
 import { ERROR_CODES } from "@petlink/shared";
@@ -22,11 +23,14 @@ export const announcementsService = {
     return announcementsRepository.create(authUserId, payload);
   },
 
-  listAnnouncements: (query: ListAnnouncementsQueryDto): Promise<AnnouncementModel[]> => {
-    return announcementsRepository.findMany({
-      ...query,
-      isActive: query.isActive ?? true
-    });
+  listAnnouncements: (query: ListAnnouncementsQueryDto, pagination: PaginationParams): Promise<Paginated<AnnouncementModel>> => {
+    return announcementsRepository.findMany(
+      {
+        ...query,
+        isActive: query.isActive ?? true
+      },
+      pagination
+    );
   },
 
   getAnnouncementById: async (id: string): Promise<AnnouncementModel> => {

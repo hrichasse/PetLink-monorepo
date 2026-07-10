@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@petlink/database";
+import type { Paginated, PaginationParams } from "@petlink/shared";
 import type { CreateServiceDto, ListServicesQueryDto, UpdateServiceDto } from "@/modules/services/dtos";
 import type { ServiceModel } from "@/modules/services/types";
 
@@ -92,11 +93,16 @@ export const servicesRepository = {
     });
   },
 
-  findMany: (query: ListServicesQueryDto): Promise<ServiceModel[]> => {
-    return prisma.service.findMany({
-      where: toWhereInput(query),
-      orderBy: { createdAt: "desc" }
+  findMany: async (query: ListServicesQueryDto, pagination: PaginationParams): Promise<Paginated<ServiceModel>> => {
+    const where = toWhereInput(query);
+    const items = await prisma.service.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: pagination.skip,
+      take: pagination.take
     });
+    const total = await prisma.service.count({ where });
+    return { items, total };
   },
 
   findById: (id: string): Promise<ServiceModel | null> => {

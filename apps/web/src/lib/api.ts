@@ -44,8 +44,19 @@ const TOKEN_STORAGE_KEY = "petlink_access_token";
 const REFRESH_TOKEN_STORAGE_KEY = "petlink_refresh_token";
 const AUTH_REFRESH_TIMEOUT_MS = 5000;
 
-const PETLINK_AUTH_URL = process.env.NEXT_PUBLIC_PETLINK_AUTH_URL || "https://nkwqzgbnzzitcnuboyto.supabase.co/auth/v1";
-const PETLINK_AUTH_ANON_KEY = process.env.NEXT_PUBLIC_PETLINK_AUTH_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5rd3F6Z2JuenppdGNudWJveXRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MTg5NTQsImV4cCI6MjA4OTI5NDk1NH0.Vc8s2lDTa8ygKzEi184WU4ZVCvg7L2b46KlK8I3YJOM";
+// Auth config resolves from env only — never bake secrets into the bundle.
+// Prefers explicit NEXT_PUBLIC_PETLINK_AUTH_* overrides, otherwise derives from
+// the standard Supabase vars (the PetLink auth backend IS the Supabase project).
+// If neither is set, the values are empty and the auth guards below fail fast
+// with a clear error instead of silently using a hardcoded key.
+export const PETLINK_AUTH_URL = (() => {
+  const explicit = process.env.NEXT_PUBLIC_PETLINK_AUTH_URL;
+  if (explicit) return explicit.replace(/\/$/, "");
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  return supabaseUrl ? `${supabaseUrl.replace(/\/$/, "")}/auth/v1` : "";
+})();
+export const PETLINK_AUTH_ANON_KEY =
+  process.env.NEXT_PUBLIC_PETLINK_AUTH_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
 let refreshInFlight: Promise<string | null> | null = null;
 

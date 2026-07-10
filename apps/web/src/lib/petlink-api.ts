@@ -1,8 +1,5 @@
-import { apiRequest, asQuery, setAccessToken, setRefreshToken } from "@/lib/api";
+import { apiRequest, asQuery, setAccessToken, setRefreshToken, PETLINK_AUTH_URL, PETLINK_AUTH_ANON_KEY } from "@/lib/api";
 import type { Announcement, Booking, BookingStatus, MatchCompatiblePet, MatchPreference, Payment, PaymentCheckout, PaymentProvider, Pet, PetSex, Profile, Service, Subscription, SubscriptionPlanCode, Vet } from "@/lib/petlink-data";
-
-const PETLINK_AUTH_URL = "https://nkwqzgbnzzitcnuboyto.supabase.co/auth/v1";
-const PETLINK_AUTH_ANON_KEY = process.env.NEXT_PUBLIC_PETLINK_AUTH_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5rd3F6Z2JuenppdGNudWJveXRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MTg5NTQsImV4cCI6MjA4OTI5NDk1NH0.Vc8s2lDTa8ygKzEi184WU4ZVCvg7L2b46KlK8I3YJOM";
 
 type PetLinkAuthSession = {
   access_token: string;
@@ -62,8 +59,13 @@ export type CreatePetInput = {
   isVaccinated?: boolean;
 };
 
+// Backend list endpoints are paginated (default pageSize=20). Until the UI has
+// real pagination controls (see roadmap), request the max page size so current
+// lists are not silently truncated while queries stay bounded server-side.
+const LIST_PAGE_SIZE = 100;
+
 export const petsApi = {
-  list: () => apiRequest<Pet[]>("pets", "/pets"),
+  list: () => apiRequest<Pet[]>("pets", `/pets${asQuery({ pageSize: LIST_PAGE_SIZE })}`),
   get: (id: string) => apiRequest<Pet>("pets", `/pets/${id}`),
   create: (payload: CreatePetInput) => apiRequest<Pet>("pets", "/pets", { method: "POST", body: JSON.stringify(payload) }),
   update: (id: string, payload: Partial<CreatePetInput>) => apiRequest<Pet>("pets", `/pets/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
@@ -96,13 +98,13 @@ export type ServiceInput = Pick<Service, "type" | "title" | "description" | "pri
 export const marketplaceApi = {
   services: {
     list: (filters: { type?: string; location?: string; providerId?: string; isActive?: boolean } = {}) =>
-      apiRequest<Service[]>("marketplace", `/services${asQuery(filters)}`),
+      apiRequest<Service[]>("marketplace", `/services${asQuery({ ...filters, pageSize: LIST_PAGE_SIZE })}`),
     get: (id: string) => apiRequest<Service>("marketplace", `/services/${id}`),
     create: (payload: ServiceInput) => apiRequest<Service>("marketplace", "/services", { method: "POST", body: JSON.stringify(payload) }),
     update: (id: string, payload: Partial<ServiceInput>) => apiRequest<Service>("marketplace", `/services/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
   },
   bookings: {
-    list: (role: "owner" | "provider") => apiRequest<Booking[]>("marketplace", `/bookings?role=${role}`),
+    list: (role: "owner" | "provider") => apiRequest<Booking[]>("marketplace", `/bookings${asQuery({ role, pageSize: LIST_PAGE_SIZE })}`),
     get: (id: string) => apiRequest<Booking>("marketplace", `/bookings/${id}`),
     create: (payload: { petId: string; serviceId: string; bookingDate: string; durationHours?: number; notes?: string | null }) =>
       apiRequest<Booking>("marketplace", "/bookings", { method: "POST", body: JSON.stringify(payload) }),
@@ -112,14 +114,14 @@ export const marketplaceApi = {
   },
   vets: {
     list: (filters: { city?: string; specialty?: string; isPartner?: boolean; isActive?: boolean } = {}) =>
-      apiRequest<Vet[]>("marketplace", `/veterinaries${asQuery(filters)}`),
+      apiRequest<Vet[]>("marketplace", `/veterinaries${asQuery({ ...filters, pageSize: LIST_PAGE_SIZE })}`),
     get: (id: string) => apiRequest<Vet>("marketplace", `/veterinaries/${id}`),
       create: (payload: { name: string; address: string; city: string; phone?: string | null; description?: string | null; specialties?: string[]; isActive?: boolean }) =>
         apiRequest<Vet>("marketplace", "/veterinaries", { method: "POST", body: JSON.stringify(payload) }),
     },
   announcements: {
     list: (filters: { type?: string; city?: string; authorId?: string; isActive?: boolean } = {}) =>
-      apiRequest<Announcement[]>("pets", `/announcements${asQuery(filters)}`),
+      apiRequest<Announcement[]>("pets", `/announcements${asQuery({ ...filters, pageSize: LIST_PAGE_SIZE })}`),
     get: (id: string) => apiRequest<Announcement>("pets", `/announcements/${id}`),
     create: (payload: Partial<Announcement> & Pick<Announcement, "type" | "title" | "description">) =>
       apiRequest<Announcement>("pets", "/announcements", { method: "POST", body: JSON.stringify(payload) }),
@@ -146,6 +148,6 @@ export const marketplaceApi = {
       apiRequest<PaymentCheckout>("marketplace", "/payments/checkout", { method: "POST", body: JSON.stringify(payload) }),
     confirm: (id: string, payload: { status: "APPROVED" | "REJECTED" | "CANCELLED" | "FAILED"; providerPaymentId?: string | null; providerReference?: string | null; paymentMethod?: string | null; metadata?: Record<string, unknown> }) =>
       apiRequest<Payment>("marketplace", `/payments/${id}/confirm`, { method: "POST", body: JSON.stringify(payload) }),
-    my: () => apiRequest<Payment[]>("marketplace", "/payments/my"),
+    my: () => apiRequest<Payment[]>("marketplace", `/payments/my${asQuery({ pageSize: LIST_PAGE_SIZE })}`),
   }
 };
