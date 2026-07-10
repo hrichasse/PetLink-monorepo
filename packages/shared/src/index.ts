@@ -21,6 +21,7 @@ export * from "./utils/get-auth-token";
 // Middleware
 export * from "./middleware/auth";
 export * from "./middleware/error-handler";
+export * from "./middleware/rate-limit";
 
 // Lib
 export * from "./lib/supabase";
