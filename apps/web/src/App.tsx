@@ -40,13 +40,18 @@ const queryClient = new QueryClient({
 });
 
 function ProtectedRoutes() {
-  const { user, loading, profile } = useAuth();
+  const { user, loading, profileLoading, profile } = useAuth();
   const location = useLocation();
   const isOnboardingRoute = location.pathname === "/onboarding/profile";
   const isProfileComplete = Boolean(profile?.fullName?.trim() && profile?.city?.trim() && profile?.location?.trim());
+  const loadingScreen = <div className="grid min-h-screen place-items-center bg-background text-foreground">Cargando PetLink…</div>;
 
-  if (loading) return <div className="grid min-h-screen place-items-center bg-background text-foreground">Cargando PetLink…</div>;
+  if (loading) return loadingScreen;
   if (!user) return <Navigate to="/login" replace />;
+  // Session is valid but the profile fetch hasn't resolved yet: wait instead of
+  // assuming the user needs onboarding. Without this, every login/reload flashes
+  // the onboarding screen for ~3s until the profile request (cold-started) returns.
+  if (profileLoading && !isProfileComplete) return loadingScreen;
   if (!isProfileComplete && !isOnboardingRoute) return <Navigate to="/onboarding/profile" replace />;
   if (isProfileComplete && isOnboardingRoute) return <Navigate to="/dashboard" replace />;
   return <AppShell />;
