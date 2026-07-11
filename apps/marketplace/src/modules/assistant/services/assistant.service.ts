@@ -4,7 +4,7 @@ import { subscriptionsService } from "@/modules/subscriptions/services";
 import { getDailyAssistantLimit } from "@/modules/assistant/config/limits";
 import { PET_ASSISTANT_SYSTEM_INSTRUCTION } from "@/modules/assistant/config/prompt";
 import { assistantUsageRepository } from "@/modules/assistant/repositories";
-import { generatePetAssistantReply, type ChatTurn } from "@/modules/assistant/providers/gemini.client";
+import { generatePetAssistantReply, type ChatTurn } from "@/modules/assistant/providers/groq.client";
 
 export type AssistantUsageSummary = {
   used: number;

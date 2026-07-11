@@ -17,14 +17,14 @@ jest.mock("../modules/assistant/repositories", () => ({
   },
 }));
 
-jest.mock("../modules/assistant/providers/gemini.client", () => ({
+jest.mock("../modules/assistant/providers/groq.client", () => ({
   generatePetAssistantReply: jest.fn(),
 }));
 
 import { assistantService } from "../modules/assistant/services/assistant.service";
 import { subscriptionsService } from "../modules/subscriptions/services";
 import { assistantUsageRepository } from "../modules/assistant/repositories";
-import { generatePetAssistantReply } from "../modules/assistant/providers/gemini.client";
+import { generatePetAssistantReply } from "../modules/assistant/providers/groq.client";
 
 const mockSubs = subscriptionsService as jest.Mocked<typeof subscriptionsService>;
 const mockRepo = assistantUsageRepository as jest.Mocked<typeof assistantUsageRepository>;
@@ -70,7 +70,7 @@ describe("assistantService.ask()", () => {
     expect(result).toMatchObject({ answer: expect.stringContaining("paseos"), used: 5, limit: 15, remaining: 10 });
   });
 
-  it("blocks with 429 and skips Gemini when the daily limit is reached", async () => {
+  it("blocks with 429 and skips the model call when the daily limit is reached", async () => {
     mockSubs.getMyActiveSubscription.mockResolvedValueOnce(null); // Free → limit 5
     mockRepo.getCountForDay.mockResolvedValueOnce(5);
 
