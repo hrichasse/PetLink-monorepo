@@ -12,8 +12,8 @@ import { EmptyState } from "@/components/petlink/EmptyState";
 import { LocationMap } from "@/components/petlink/LocationMap";
 import { SkeletonGrid } from "@/components/petlink/SkeletonGrid";
 import { ApiError } from "@/lib/api";
-import { authApi, marketplaceApi, petsApi } from "@/lib/petlink-api";
-import { normalizeBookingStatus, type Booking, type BookingStatus, type PetSex } from "@/lib/petlink-data";
+import { assistantApi, authApi, marketplaceApi, petsApi } from "@/lib/petlink-api";
+import { normalizeBookingStatus, type AssistantChatTurn, type Booking, type BookingStatus, type PetSex } from "@/lib/petlink-data";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -1266,6 +1266,100 @@ export function SubscriptionsPage() {
 export function NotificationsPage() { return <Page title="Notificaciones"><EmptyState title="Todo tranquilo" description="El backend actual permite crear notificaciones; no incluye endpoint de listado para mostrarlas aquí." /></Page>; }
 export function BookingDetailPage() { const { id } = useParams(); const { data, isLoading, error } = useQuery({ queryKey: ["bookings", id], queryFn: () => marketplaceApi.bookings.get(id ?? ""), enabled: Boolean(id) }); return <Page title="Detalle de reserva">{isLoading ? <SkeletonGrid /> : error || !data ? <EmptyState title="Reserva no encontrada" description={error instanceof Error ? error.message : "No pudimos cargar el detalle."} /> : <BookingCard booking={data} />}</Page>; }
 export function RoleRedirect({ provider }: { provider: boolean }) { const { role } = useAuth(); if ((provider && role !== "PROVIDER") || (!provider && role !== "OWNER")) return <Navigate to="/dashboard" replace />; return null; }
+
+export function AssistantPage() {
+  const queryClient = useQueryClient();
+  const handleError = useApiError();
+  const [messages, setMessages] = useState<AssistantChatTurn[]>([]);
+  const [input, setInput] = useState("");
+
+  const usage = useQuery({ queryKey: ["assistant-usage"], queryFn: assistantApi.usage, staleTime: 15_000 });
+  const remaining = usage.data?.remaining ?? null;
+  const limitReached = remaining !== null && remaining <= 0;
+
+  const ask = useMutation({
+    mutationFn: (question: string) => assistantApi.ask({ question, history: messages.slice(-10) }),
+    onMutate: (question: string) => {
+      // Show the user's message immediately (multi-turn context is ephemeral).
+      setMessages((prev) => [...prev, { role: "user", text: question }]);
+      setInput("");
+    },
+    onSuccess: (res) => {
+      setMessages((prev) => [...prev, { role: "model", text: res.answer }]);
+      queryClient.setQueryData(["assistant-usage"], {
+        used: res.used,
+        limit: res.limit,
+        remaining: res.remaining,
+        planCode: res.planCode
+      });
+    },
+    onError: handleError
+  });
+
+  const canSend = input.trim().length >= 3 && !ask.isPending && !limitReached;
+
+  const usageBadge = usage.data ? (
+    <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-bold text-primary">
+      {usage.data.remaining}/{usage.data.limit} preguntas hoy
+    </span>
+  ) : null;
+
+  return (
+    <Page title="Asistente PetLink" action={usageBadge}>
+      <div className="flex flex-col rounded-card border bg-card shadow-soft">
+        <div className="flex items-center gap-2 border-b px-5 py-3 text-sm text-muted-foreground">
+          <Sparkles className="h-4 w-4 shrink-0 text-primary" />
+          Dudas sobre cuidado, salud y comportamiento de mascotas. No reemplaza a un veterinario.
+        </div>
+
+        <div className="flex min-h-[45vh] flex-col gap-4 p-5">
+          {messages.length === 0 ? (
+            <div className="m-auto max-w-md text-center text-muted-foreground">
+              <Sparkles className="mx-auto h-10 w-10 text-primary" />
+              <p className="mt-4 font-bold text-foreground">¿En qué puedo ayudarte con tu mascota?</p>
+              <p className="mt-1 text-sm">Por ejemplo: &quot;¿Cada cuánto desparasitar a mi gato?&quot; o &quot;Mi perro no come, ¿qué hago?&quot;</p>
+            </div>
+          ) : (
+            messages.map((message, index) => (
+              <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm ${message.role === "user" ? "bg-primary text-primary-foreground" : "border bg-background"}`}>
+                  {message.text}
+                </div>
+              </div>
+            ))
+          )}
+          {ask.isPending ? (
+            <div className="flex justify-start">
+              <div className="rounded-2xl border bg-background px-4 py-3 text-sm text-muted-foreground">Pensando…</div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="border-t p-4">
+          {limitReached ? (
+            <div className="flex flex-col items-center gap-2 text-center text-sm text-muted-foreground">
+              <p>Alcanzaste tu límite diario de preguntas.</p>
+              <Button asChild variant="hero" size="sm"><Link to="/subscriptions">Mejorar mi plan</Link></Button>
+            </div>
+          ) : (
+            <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); if (canSend) ask.mutate(input.trim()); }}>
+              <input
+                className="input-shell flex-1"
+                placeholder="Escribe tu duda sobre mascotas…"
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                disabled={ask.isPending}
+                aria-label="Pregunta al asistente"
+                maxLength={1000}
+              />
+              <Button type="submit" variant="hero" disabled={!canSend}>{ask.isPending ? "…" : "Enviar"}</Button>
+            </form>
+          )}
+        </div>
+      </div>
+    </Page>
+  );
+}
 
 function Page({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) { return <section><div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-bold text-primary">PetLink</p><h1 className="text-3xl font-black md:text-4xl">{title}</h1></div>{action}</div>{children}</section>; }
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) { return <article className="rounded-card border bg-card p-6 shadow-soft"><div className="text-primary">{icon}</div><strong className="mt-4 block text-3xl font-black">{value}</strong><span className="text-sm font-bold text-muted-foreground">{label}</span></article>; }

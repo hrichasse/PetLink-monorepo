@@ -18,6 +18,7 @@ import NotFound from "./views/NotFound";
 // protected route and is reused for the rest.
 const loadAppPages = () => import("@/views/petlink/AppPages");
 const ProfileOnboardingPage = lazy(() => import("@/views/petlink/ProfileOnboarding").then((m) => ({ default: m.ProfileOnboardingPage })));
+const AssistantPage = lazy(() => loadAppPages().then((m) => ({ default: m.AssistantPage })));
 const AnnouncementsPage = lazy(() => loadAppPages().then((m) => ({ default: m.AnnouncementsPage })));
 const BookingDetailPage = lazy(() => loadAppPages().then((m) => ({ default: m.BookingDetailPage })));
 const BookingsPage = lazy(() => loadAppPages().then((m) => ({ default: m.BookingsPage })));
@@ -105,6 +106,7 @@ const App = () => (
               <Route path="/bookings" element={<BookingsPage />} />
               <Route path="/bookings/:id" element={<BookingDetailPage />} />
               <Route path="/announcements" element={<AnnouncementsPage />} />
+              <Route path="/assistant" element={<AssistantPage />} />
               <Route path="/vets" element={<VetsPage />} />
               <Route path="/my-services" element={<ProviderServicesPage />} />
               <Route path="/my-services/new" element={<ProviderServiceFormPage />} />
