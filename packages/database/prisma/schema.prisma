@@ -130,6 +130,7 @@ model UserProfile {
   subscriptions    Subscription[]    @relation("UserSubscriptions")
   payments         Payment[]         @relation("UserPayments")
   announcements    Announcement[]    @relation("AnnouncementAuthor")
+  assistantUsage   AssistantUsage[]  @relation("UserAssistantUsage")
 
   @@index([role])
   @@index([city])
@@ -177,12 +178,12 @@ model Payment {
   user         UserProfile   @relation("UserPayments", fields: [userId], references: [userId], onDelete: Restrict)
   subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
 
+  @@unique([provider, providerPaymentId])
   @@index([userId])
   @@index([subscriptionId])
   @@index([status])
   @@index([provider])
   @@index([providerReference])
-  @@unique([provider, providerPaymentId])
 }
 
 model PaymentWebhookEvent {
@@ -195,10 +196,10 @@ model PaymentWebhookEvent {
   processedAt     DateTime?
   createdAt       DateTime        @default(now())
 
+  @@unique([provider, externalEventId])
   @@index([provider])
   @@index([processed])
   @@index([createdAt])
-  @@unique([provider, externalEventId])
 }
 
 model Pet {
@@ -367,23 +368,23 @@ model NotificationLog {
 }
 
 model Veterinary {
-  id           String                @id @default(uuid()) @db.Uuid
-  name         String
-  description  String?
-  phone        String?
-  email        String?
-  website      String?
-  address      String
-  city         String
-  lat          Decimal?              @db.Decimal(10, 7)
-  lng          Decimal?              @db.Decimal(10, 7)
-  specialties  VeterinarySpecialty[] @default([GENERAL])
-  imageUrl     String?
-  isPartner    Boolean               @default(false)
-  isActive     Boolean               @default(true)
+  id             String                @id @default(uuid()) @db.Uuid
+  name           String
+  description    String?
+  phone          String?
+  email          String?
+  website        String?
+  address        String
+  city           String
+  lat            Decimal?              @db.Decimal(10, 7)
+  lng            Decimal?              @db.Decimal(10, 7)
+  specialties    VeterinarySpecialty[] @default([GENERAL])
+  imageUrl       String?
+  isPartner      Boolean               @default(false)
+  isActive       Boolean               @default(true)
   operatingHours Json?
-  createdAt    DateTime              @default(now())
-  updatedAt    DateTime              @updatedAt
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
 
   @@index([city])
   @@index([isPartner])
@@ -417,4 +418,21 @@ model Announcement {
   @@index([city])
   @@index([isActive])
   @@index([expiresAt])
+}
+
+/// Per-user, per-day counter for the AI pet assistant. The `day` is a UTC
+/// 'YYYY-MM-DD' string so quotas reset at UTC midnight without extra jobs.
+/// No conversation content is stored — only the usage count.
+model AssistantUsage {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  day       String
+  count     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user UserProfile @relation("UserAssistantUsage", fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@unique([userId, day])
+  @@index([userId])
 }

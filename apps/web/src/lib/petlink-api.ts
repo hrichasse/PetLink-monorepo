@@ -1,5 +1,5 @@
 import { apiRequest, asQuery, setAccessToken, setRefreshToken, PETLINK_AUTH_URL, PETLINK_AUTH_ANON_KEY } from "@/lib/api";
-import type { Announcement, Booking, BookingStatus, MatchCompatiblePet, MatchPreference, Payment, PaymentCheckout, PaymentProvider, Pet, PetSex, Profile, Service, Subscription, SubscriptionPlanCode, Vet } from "@/lib/petlink-data";
+import type { Announcement, AssistantAnswer, AssistantChatTurn, AssistantUsage, Booking, BookingStatus, MatchCompatiblePet, MatchPreference, Payment, PaymentCheckout, PaymentProvider, Pet, PetSex, Profile, Service, Subscription, SubscriptionPlanCode, Vet } from "@/lib/petlink-data";
 
 type PetLinkAuthSession = {
   access_token: string;
@@ -150,4 +150,10 @@ export const marketplaceApi = {
       apiRequest<Payment>("marketplace", `/payments/${id}/confirm`, { method: "POST", body: JSON.stringify(payload) }),
     my: () => apiRequest<Payment[]>("marketplace", `/payments/my${asQuery({ pageSize: LIST_PAGE_SIZE })}`),
   }
+};
+
+export const assistantApi = {
+  usage: () => apiRequest<AssistantUsage>("marketplace", "/assistant/usage"),
+  ask: (payload: { question: string; history: AssistantChatTurn[] }) =>
+    apiRequest<AssistantAnswer>("marketplace", "/assistant/ask", { method: "POST", body: JSON.stringify(payload) }),
 };

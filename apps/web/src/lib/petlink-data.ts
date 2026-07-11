@@ -185,3 +185,14 @@ export const statusCopy: Record<BookingStatus, string> = {
 export function normalizeBookingStatus(status: Booking["status"]): BookingStatus {
   return String(status).toLowerCase() as BookingStatus;
 }
+
+export type AssistantChatTurn = { role: "user" | "model"; text: string };
+
+export type AssistantUsage = {
+  used: number;
+  limit: number;
+  remaining: number;
+  planCode: SubscriptionPlanCode | null;
+};
+
+export type AssistantAnswer = AssistantUsage & { answer: string };
