@@ -15,7 +15,7 @@ const ownerLinks = [
   ["/dashboard", "Inicio", Home], ["/pets", "Mascotas", PawPrint], ["/services", "Servicios", Search], ["/match", "Match", Heart], ["/bookings", "Reservas", CalendarCheck], ["/announcements", "Anuncios", Bell], ["/vets", "Veterinarias", Stethoscope],
 ];
 const providerLinks = [["/dashboard", "Inicio", Home], ["/my-services", "Mis servicios", BriefcaseBusiness], ["/my-bookings", "Reservas", CalendarCheck]];
-const sharedLinks = [["/assistant", "Asistente", Bot], ["/profile", "Perfil", UserRound], ["/subscriptions", "Planes", WalletCards], ["/notifications", "Alertas", Bell]];
+const sharedLinks = [["/assistant", "PetAsistance", Bot], ["/profile", "Perfil", UserRound], ["/subscriptions", "Planes", WalletCards], ["/notifications", "Alertas", Bell]];
 
 export function AppShell() {
   const { role, profile, signOut } = useAuth();

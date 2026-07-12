@@ -12,6 +12,8 @@ export type ServiceResponseDto = {
   location: string;
   availabilityNotes: string | null;
   isActive: boolean;
+  providerName: string | null;
+  providerCity: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -27,6 +29,8 @@ export const toServiceResponseDto = (service: ServiceModel): ServiceResponseDto 
     location: service.location,
     availabilityNotes: service.availabilityNotes,
     isActive: service.isActive,
+    providerName: service.provider?.fullName ?? null,
+    providerCity: service.provider?.city ?? null,
     createdAt: service.createdAt.toISOString(),
     updatedAt: service.updatedAt.toISOString()
   };

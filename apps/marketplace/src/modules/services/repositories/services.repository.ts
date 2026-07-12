@@ -99,7 +99,8 @@ export const servicesRepository = {
       where,
       orderBy: { createdAt: "desc" },
       skip: pagination.skip,
-      take: pagination.take
+      take: pagination.take,
+      include: { provider: { select: { fullName: true, city: true } } }
     });
     const total = await prisma.service.count({ where });
     return { items, total };
@@ -107,7 +108,8 @@ export const servicesRepository = {
 
   findById: (id: string): Promise<ServiceModel | null> => {
     return prisma.service.findUnique({
-      where: { id }
+      where: { id },
+      include: { provider: { select: { fullName: true, city: true } } }
     });
   },
 
