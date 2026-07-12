@@ -1300,7 +1300,7 @@ export function AssistantPage() {
 
   const usageBadge = usage.data ? (
     <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-bold text-primary">
-      {usage.data.remaining}/{usage.data.limit} preguntas hoy
+      Te quedan {usage.data.remaining} de {usage.data.limit} hoy
     </span>
   ) : null;
 
