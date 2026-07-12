@@ -107,7 +107,8 @@ export type Service = {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  providerName?: string;
+  providerName?: string | null;
+  providerCity?: string | null;
   category?: string;
   city?: string;
   rating?: number;
