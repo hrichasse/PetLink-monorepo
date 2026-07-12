@@ -1305,7 +1305,7 @@ export function AssistantPage() {
   ) : null;
 
   return (
-    <Page title="Asistente PetLink" action={usageBadge}>
+    <Page title="PetAsistance" action={usageBadge}>
       <div className="flex flex-col rounded-card border bg-card shadow-soft">
         <div className="flex items-center gap-2 border-b px-5 py-3 text-sm text-muted-foreground">
           <Sparkles className="h-4 w-4 shrink-0 text-primary" />
