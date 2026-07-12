@@ -75,6 +75,11 @@ export const petsApi = {
     body.append("file", file);
     return apiRequest<{ bucket: string; path: string; url: string; contentType: string; size: number; fileName: string }>("pets", `/media/pets/${petId}`, { method: "POST", body });
   },
+  uploadAvatar: (file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    return apiRequest<{ bucket: string; path: string; url: string; contentType: string; size: number; fileName: string }>("pets", "/media/users/me/avatar", { method: "POST", body });
+  },
   match: {
     findCompatible: (filters: { petId: string; limit?: number }) =>
       apiRequest<MatchCompatiblePet[]>("pets", `/match${asQuery(filters)}`),
