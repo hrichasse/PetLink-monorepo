@@ -1103,9 +1103,10 @@ export function ProviderServiceFormPage() {
   );
 }
 export function ProfilePage() {
-  const { profile, refreshProfile } = useAuth();
+  const { profile, refreshProfile, user } = useAuth();
   const handleError = useApiError();
   const [isEditing, setIsEditing] = useState(false);
+  const role = profile?.role;
   const form = useForm<ProfileValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -1131,6 +1132,11 @@ export function ProfilePage() {
     }
   }, [profile, isEditing, form]);
 
+  const subscription = useQuery({ queryKey: ["my-subscription"], queryFn: async () => { try { return await marketplaceApi.subscriptions.getMyActive(); } catch { return null; } }, staleTime: 30_000 });
+  const pets = useQuery({ queryKey: ["pets"], queryFn: petsApi.list, enabled: role === "OWNER" });
+  const bookings = useQuery({ queryKey: ["bookings", role], queryFn: () => marketplaceApi.bookings.list(role === "PROVIDER" ? "provider" : "owner"), enabled: Boolean(role) });
+  const providerServices = useQuery({ queryKey: ["provider-services-count", profile?.userId], queryFn: () => marketplaceApi.services.list({ providerId: profile?.userId }), enabled: role === "PROVIDER" && Boolean(profile?.userId) });
+
   const mutation = useMutation({
     mutationFn: (values: ProfileValues) => authApi.updateMe({
       fullName: values.fullName,
@@ -1146,6 +1152,12 @@ export function ProfilePage() {
     onError: handleError
   });
 
+  const avatarMutation = useMutation({
+    mutationFn: (file: File) => petsApi.uploadAvatar(file),
+    onSuccess: async () => { await refreshProfile(); toast.success("Foto de perfil actualizada"); },
+    onError: handleError
+  });
+
   const resetProfileForm = () => {
     form.reset({
       fullName: profile?.fullName ?? "",
@@ -1155,7 +1167,13 @@ export function ProfilePage() {
     });
   };
 
-  return <Page title="Perfil"><section className="rounded-card border bg-card p-6 shadow-soft"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-4"><div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-2xl">👤</div><div><h2 className="text-xl font-black">{profile?.fullName ?? "Usuario PetLink"}</h2><p className="text-muted-foreground">{profile?.role === "PROVIDER" ? "Proveedor" : "Dueño"}</p></div></div>{isEditing ? <Button variant="outline" type="button" disabled={mutation.isPending} onClick={() => { resetProfileForm(); setIsEditing(false); }}>Cancelar</Button> : <Button variant="hero" type="button" onClick={() => { resetProfileForm(); setIsEditing(true); }}>Modificar perfil</Button>}</div>{isEditing ? <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}><Input label="Nombre" error={form.formState.errors.fullName?.message} props={form.register("fullName")} /><Input label="Teléfono" error={form.formState.errors.phone?.message} props={form.register("phone")} /><Input label="Ciudad" error={form.formState.errors.city?.message} props={form.register("city")} /><AddressAutocompleteInput label="Dirección" value={currentLocation} onChange={(value) => form.setValue("location", value, { shouldDirty: true, shouldValidate: true })} /><LocationMap className="md:col-span-2" title="Ubicación de perfil" address={currentLocation} city={currentCity || undefined} /><Button className="md:col-span-2" variant="hero" disabled={mutation.isPending}>{mutation.isPending ? "Guardando…" : "Guardar perfil"}</Button></form> : <div className="mt-6 grid gap-4 md:grid-cols-2"><ProfileField label="Nombre" value={profile?.fullName} /><ProfileField label="Teléfono" value={profile?.phone} /><ProfileField label="Ciudad" value={profile?.city} /><ProfileField label="Dirección" value={profile?.location} /><LocationMap className="md:col-span-2" title="Ubicación de perfil" address={profile?.location ?? undefined} city={profile?.city ?? undefined} /></div>}</section></Page>;
+  const initials = (profile?.fullName ?? "U").trim().split(/\s+/).map((word) => word[0]).slice(0, 2).join("").toUpperCase();
+  const planLabel = subscription.data?.planCode === "PREMIUM" ? "Premium" : subscription.data?.planCode === "PROVIDER_PRO" ? "Provider Pro" : subscription.data?.planCode === "BASIC" ? "Basic" : "Free";
+  const memberSince = profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString("es-CL", { year: "numeric", month: "long" }) : "—";
+  const publicProfileUrl = typeof window !== "undefined" ? `${window.location.origin}/providers/${profile?.userId}` : "";
+  const copyPublicLink = () => { if (publicProfileUrl) void navigator.clipboard.writeText(publicProfileUrl).then(() => toast.success("Link copiado al portapapeles")).catch(() => toast.error("No se pudo copiar el link")); };
+
+  return <Page title="Perfil"><div className="space-y-6"><section className="rounded-card border bg-card p-6 shadow-soft"><div className="flex flex-col gap-5 sm:flex-row sm:items-center"><div className="relative w-fit"><div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-primary-soft text-3xl font-black text-primary">{profile?.avatarUrl ? <img src={profile.avatarUrl} alt={profile.fullName} className="h-full w-full object-cover" /> : initials}</div><label className="absolute -bottom-1 -right-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground shadow-warm" title="Cambiar foto"><ImagePlus className="h-4 w-4" /><input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={avatarMutation.isPending} onChange={(event) => { const file = event.target.files?.[0]; if (file) avatarMutation.mutate(file); }} /></label></div><div className="flex-1"><h2 className="text-2xl font-black">{profile?.fullName ?? "Usuario PetLink"}</h2><div className="mt-2 flex flex-wrap gap-2"><span className="rounded-full bg-secondary px-3 py-1 text-xs font-bold text-secondary-foreground">{role === "PROVIDER" ? "Proveedor" : "Dueño"}</span><span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">Plan {planLabel}</span><span className="rounded-full bg-accent px-3 py-1 text-xs font-bold text-accent-foreground">Miembro desde {memberSince}</span></div>{avatarMutation.isPending ? <p className="mt-2 text-xs text-muted-foreground">Subiendo foto…</p> : null}</div></div></section><div className="grid gap-4 md:grid-cols-3">{role === "PROVIDER" ? <Stat icon={<Search />} label="Servicios publicados" value={String(providerServices.data?.length ?? "—")} /> : <Stat icon={<Heart />} label="Mascotas" value={String(pets.data?.length ?? "—")} />}<Stat icon={<CalendarCheck />} label="Reservas" value={String(bookings.data?.length ?? "—")} /><Stat icon={<WalletCards />} label="Plan actual" value={planLabel} /></div>{role === "PROVIDER" ? <section className="rounded-card border bg-card p-6 shadow-soft"><h3 className="text-lg font-black">Tu perfil público</h3><p className="mt-1 text-sm text-muted-foreground">Compartí este link para que vean todos tus servicios publicados.</p><div className="mt-4 flex flex-wrap gap-3"><Button asChild variant="hero"><Link to={`/providers/${profile?.userId}`}>Ver mi perfil público</Link></Button><Button variant="outline" type="button" onClick={copyPublicLink}>Copiar link</Button></div></section> : null}<section className="rounded-card border bg-card p-6 shadow-soft"><div className="flex items-center justify-between"><h3 className="text-lg font-black">Datos de la cuenta</h3>{isEditing ? <Button variant="outline" type="button" disabled={mutation.isPending} onClick={() => { resetProfileForm(); setIsEditing(false); }}>Cancelar</Button> : <Button variant="hero" type="button" onClick={() => { resetProfileForm(); setIsEditing(true); }}>Modificar</Button>}</div>{isEditing ? <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}><Input label="Nombre" error={form.formState.errors.fullName?.message} props={form.register("fullName")} /><Input label="Teléfono" error={form.formState.errors.phone?.message} props={form.register("phone")} /><Input label="Ciudad" error={form.formState.errors.city?.message} props={form.register("city")} /><AddressAutocompleteInput label="Dirección" value={currentLocation} onChange={(value) => form.setValue("location", value, { shouldDirty: true, shouldValidate: true })} /><LocationMap className="md:col-span-2" title="Ubicación de perfil" address={currentLocation} city={currentCity || undefined} /><Button className="md:col-span-2" variant="hero" disabled={mutation.isPending}>{mutation.isPending ? "Guardando…" : "Guardar perfil"}</Button></form> : <div className="mt-6 grid gap-4 md:grid-cols-2"><ProfileField label="Correo" value={user?.email ?? "—"} /><ProfileField label="Teléfono" value={profile?.phone} /><ProfileField label="Ciudad" value={profile?.city} /><ProfileField label="Dirección" value={profile?.location} /><LocationMap className="md:col-span-2" title="Ubicación de perfil" address={profile?.location ?? undefined} city={profile?.city ?? undefined} /></div>}</section></div></Page>;
 }
 export function SubscriptionsPage() {
   const { loading, session } = useAuth();
