@@ -9,11 +9,6 @@ export function PetlinkFooter() {
           <p className="mt-3 max-w-xs text-sm text-slate-600">
             Conectamos familias peludas con servicios confiables en todo Chile.
           </p>
-          <div className="mt-6 flex gap-3">
-            <span className="rounded-lg border bg-white px-3 py-2 text-xs font-bold">ChileCompra</span>
-            <span className="rounded-lg border bg-white px-3 py-2 text-xs font-bold">Flow</span>
-            <span className="rounded-lg border bg-white px-3 py-2 text-xs font-bold">Webpay Plus</span>
-          </div>
         </section>
 
         <section>
