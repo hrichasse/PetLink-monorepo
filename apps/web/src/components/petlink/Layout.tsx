@@ -8,7 +8,11 @@ import { marketplaceApi } from "@/lib/petlink-api";
 import { cn } from "@/lib/utils";
 
 export function PublicNav() {
-  return <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur"><nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3"><Link to="/" className="flex items-center gap-2 text-xl font-black"><span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground"><PawPrint /></span>PetLink</Link><div className="flex items-center gap-2"><Button asChild variant="ghost"><Link to="/login">Ingresar</Link></Button><Button asChild variant="hero"><Link to="/register">Crear cuenta</Link></Button></div></nav></header>;
+  const { user, profile, signOut } = useAuth();
+  const navigate = useNavigate();
+  const avatarInitials = (profile?.fullName ?? "U").trim().split(/\s+/).map((word) => word[0]).slice(0, 2).join("").toUpperCase();
+
+  return <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur"><nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3"><Link to="/" className="flex items-center gap-2 text-xl font-black"><span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground"><PawPrint /></span>PetLink</Link>{user ? <div className="flex items-center gap-2"><button type="button" onClick={() => navigate("/profile")} className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-soft text-sm font-black text-primary" aria-label="Ir a mi perfil">{profile?.avatarUrl ? <img src={profile.avatarUrl} alt={profile.fullName ?? "Perfil"} className="h-full w-full object-cover" /> : avatarInitials}</button><span className="hidden text-sm font-bold sm:inline">{profile?.fullName ?? "Usuario"}</span><Button variant="outline" size="sm" onClick={() => navigate("/dashboard")}>Ir a la app</Button><Button variant="ghost" size="icon" aria-label="Cerrar sesión" onClick={() => void signOut()}><LogOut className="h-4 w-4" /></Button></div> : <div className="flex items-center gap-2"><Button asChild variant="ghost"><Link to="/login">Ingresar</Link></Button><Button asChild variant="hero"><Link to="/register">Crear cuenta</Link></Button></div>}</nav></header>;
 }
 
 const ownerLinks = [
