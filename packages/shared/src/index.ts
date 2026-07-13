@@ -19,6 +19,10 @@ export * from "./utils/env";
 export * from "./utils/get-auth-token";
 export * from "./utils/pagination";
 
+// OpenAPI / Swagger docs
+export * from "./openapi/document";
+export * from "./openapi/swagger-ui";
+
 // Middleware
 export * from "./middleware/auth";
 export * from "./middleware/error-handler";
