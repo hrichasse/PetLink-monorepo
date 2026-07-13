@@ -1,4 +1,5 @@
 import { Mail, MapPin, Phone, Clock3, ShieldCheck } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export function PetlinkFooter() {
   return (
@@ -12,31 +13,31 @@ export function PetlinkFooter() {
         </section>
 
         <section>
-          <h3 className="text-xl font-extrabold">Informacion</h3>
+          <h3 className="text-xl font-extrabold">Información</h3>
           <ul className="mt-3 space-y-2 text-sm text-slate-600">
-            <li>Blog</li>
-            <li>Contacto</li>
-            <li>Calificanos en Google</li>
-            <li>Quienes somos</li>
+            <li><Link to="/legal/privacidad" className="transition-colors hover:text-primary">Protección de datos</Link></li>
+            <li><a href="mailto:contacto@petlink.cl" className="transition-colors hover:text-primary">Contacto</a></li>
+            <li className="cursor-default">Blog</li>
+            <li className="cursor-default">Quiénes somos</li>
           </ul>
         </section>
 
         <section>
           <h3 className="text-xl font-extrabold">Servicio al Cliente</h3>
           <ul className="mt-3 space-y-2 text-sm text-slate-600">
-            <li>Soporte tecnico</li>
-            <li>Politicas de servicio</li>
-            <li>Postventa</li>
-            <li>Terminos y condiciones</li>
-            <li>Ventas corporativas</li>
+            <li><a href="mailto:contacto@petlink.cl" className="transition-colors hover:text-primary">Soporte técnico</a></li>
+            <li><Link to="/legal/servicio" className="transition-colors hover:text-primary">Políticas de servicio</Link></li>
+            <li><Link to="/legal/postventa" className="transition-colors hover:text-primary">Postventa</Link></li>
+            <li><Link to="/legal/terminos" className="transition-colors hover:text-primary">Términos y condiciones</Link></li>
+            <li><a href="mailto:ventas@petlink.cl" className="transition-colors hover:text-primary">Ventas corporativas</a></li>
           </ul>
         </section>
 
         <section>
           <h3 className="text-xl font-extrabold">Contactanos</h3>
           <ul className="mt-3 space-y-3 text-sm text-slate-700">
-            <li className="flex items-center gap-2"><Phone className="h-4 w-4 text-primary" /> +56 9 7779 8385</li>
-            <li className="flex items-center gap-2"><Mail className="h-4 w-4 text-primary" /> contacto@petlink.cl</li>
+            <li className="flex items-center gap-2"><Phone className="h-4 w-4 text-primary" /> <a href="tel:+56977798385" className="transition-colors hover:text-primary">+56 9 7779 8385</a></li>
+            <li className="flex items-center gap-2"><Mail className="h-4 w-4 text-primary" /> <a href="mailto:contacto@petlink.cl" className="transition-colors hover:text-primary">contacto@petlink.cl</a></li>
             <li className="flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Santiago, Region Metropolitana</li>
             <li className="flex items-center gap-2"><Clock3 className="h-4 w-4 text-primary" /> Lun a Vie 10:00 a 19:00</li>
           </ul>

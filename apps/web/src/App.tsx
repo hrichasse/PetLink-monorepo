@@ -19,6 +19,7 @@ import NotFound from "./views/NotFound";
 const loadAppPages = () => import("@/views/petlink/AppPages");
 const ProfileOnboardingPage = lazy(() => import("@/views/petlink/ProfileOnboarding").then((m) => ({ default: m.ProfileOnboardingPage })));
 const ProviderProfilePage = lazy(() => import("@/views/petlink/ProviderProfile").then((m) => ({ default: m.ProviderProfilePage })));
+const LegalPage = lazy(() => import("@/views/petlink/Legal").then((m) => ({ default: m.LegalPage })));
 const AssistantPage = lazy(() => loadAppPages().then((m) => ({ default: m.AssistantPage })));
 const AnnouncementsPage = lazy(() => loadAppPages().then((m) => ({ default: m.AnnouncementsPage })));
 const BookingDetailPage = lazy(() => loadAppPages().then((m) => ({ default: m.BookingDetailPage })));
@@ -96,6 +97,7 @@ const App = () => (
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/auth/callback" element={<AuthCallbackPage />} />
             <Route path="/providers/:id" element={<ProviderProfilePage />} />
+            <Route path="/legal/:doc" element={<LegalPage />} />
             <Route element={<ProtectedRoutes />}>
               <Route path="/onboarding/profile" element={<ProfileOnboardingPage />} />
               <Route path="/dashboard" element={<DashboardPage />} />
